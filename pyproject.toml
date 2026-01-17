@@ -1,0 +1,19 @@
+[tool.poetry]
+name = "4writersbot"
+version = "0.2.0"
+description = "Parser for 4writers on aiogram"
+authors = ["socalmy <sergeitoropov2003@gmail.com>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.12"
+aiogram = "^3.15.0"
+envparse = "^0.2.0"
+py4writers = "^0.7.0"
+
+[tool.poetry.group.dev.dependencies]
+nuitka = "^2.6.6"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
