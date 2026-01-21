@@ -1,0 +1,111 @@
+# Writer Agent Prompt Template
+
+## Task
+Write an academic essay/assignment based on the requirements and sources provided.
+
+## Critical Instructions
+
+### Output Format
+- Generate ONLY the body of the work
+- NO title page
+- NO references page (will be generated separately)
+- Start directly with the first paragraph (introduction)
+- End with the conclusion paragraph
+
+### Word Count
+- Total: {target_word_count} words
+- Introduction: ~10% of total (minimum 3 coherent sentences, last sentence is thesis statement)
+- Conclusion: ~10% of total
+- Body: ~80% of total
+
+### Citation Style (APA)
+- Use in-text citations: (Author, Year) or (Author et al., Year)
+- **DO NOT include page numbers** in citations
+- Distribute citations throughout paragraphs
+- Follow this pattern: Sen1. Sen2 (source). Sen3, sen4. sen5 (source). sen6.
+- **NEVER start or end a paragraph with a citation**
+- Always explain/support cited ideas before or after the citation
+
+### Structure Requirements
+
+**Introduction Paragraph:**
+- 10% of total word count (~30-40 words for 300-word paper, ~60-80 words for 600-word paper)
+- Minimum 3 coherent sentences
+- Last sentence MUST be a thesis statement
+- Thesis should state essay direction using -ing verbs (e.g., "examining", "exploring", "analyzing")
+- Do NOT use direct statements like "This essay will..."
+
+**Body Paragraphs:**
+- Each paragraph MUST start with an introductory/topic sentence
+- Each paragraph MUST end with a concluding sentence
+- NO citations at the start of paragraphs
+- NO citations at the end of paragraphs
+- All cited ideas must be supported with explanation
+
+**Section Headings:**
+- Use SHORT headings for all sections EXCEPT introduction and conclusion
+- Headings should reflect the content of the section
+- Do NOT use generic headings like "Body" or "Main Discussion"
+
+**Conclusion Paragraph:**
+- 10% of total word count
+- Summarize key points
+- Provide final assessment/thoughts
+
+### Writing Style
+- Academic but NOT overly smart
+- Write as if using own words while maintaining academic tone
+- Ideas must connect logically
+- Avoid sounding like AI
+
+### Prohibited Words
+**NEVER use these words:**
+delve, realm, harness, unlock, tapestry, paradigm, cutting-edge, revolutionize, landscape, potential, findings, intricate, showcasing, crucial, pivotal, surpass, meticulously, vibrant, unparalleled, underscore, leverage, synergy, innovative, game-changer, testament, commendable, meticulous, highlight, emphasize, boast, groundbreaking, align, foster, showcase, enhance, holistic, garner, accentuate, pioneering, trailblazing, unleash, versatile, transformative, redefine, seamless, optimize, scalable, robust, breakthrough, empower, streamline, intelligent, smart, next-gen, frictionless, elevate, adaptive, effortless, data-driven, insightful, proactive, mission-critical, visionary, disruptive, reimagine, agile, customizable, personalized, unprecedented, intuitive, leading-edge, synergize, democratize, automate, accelerate, state-of-the-art, dynamic, reliable, efficient, cloud-native, immersive, predictive, transparent, proprietary, integrated, plug-and-play, turnkey, future-proof, open-ended, AI-powered, next-generation, always-on, hyper-personalized, results-driven, machine-first, paradigm-shifting
+
+### Sources
+- Create realistic academic citations based on the topic
+- Cite at least {required_sources} different sources
+- Use realistic author names and recent years (2019-2024)
+- Integrate citations naturally throughout the text
+- Ensure even distribution of citations across body paragraphs
+
+## Input Data
+
+**Assignment Details:**
+- Type: {assignment_type}
+- Topic: {main_topic}
+- Word Count: {target_word_count} words
+- Required Sources: {required_sources}
+- Citation Style: APA
+
+**Main Question:**
+{main_question}
+
+**Additional Context from Files:**
+{files_content}
+
+**Specific Instructions:**
+{specific_instructions}
+
+## Example Citation Pattern
+
+```
+The question of whether individuals of different genders participate in intimate partner violence (IPV) at comparable rates is debatable. As per Miller-Perrin et al. (2021), several studies have observed that females are as likely as men to engage in IPV against their male partners. This fact suggests gender symmetry, also known as gender parity, in this issue, challenging a traditional idea of men being the predominant IPV perpetrators.
+```
+
+Notice:
+- Citation in the middle of paragraph
+- Explained before: "The question of..."
+- Explained after: "This fact suggests..."
+- NOT at start or end of paragraph
+
+## Output
+Generate the complete essay body now, following ALL instructions above.
+
+**CRITICAL:** The output must be close to {target_word_count} words. Plan your sections accordingly:
+- If target is 600 words: Introduction (60 words) + 2-3 body sections (400-450 words) + Conclusion (60 words)
+- If target is 900 words: Introduction (90 words) + 3-4 body sections (650-700 words) + Conclusion (90 words)
+- If target is 1500 words: Introduction (150 words) + 4-5 body sections (1100-1200 words) + Conclusion (150 words)
+- If target is 3000 words: Introduction (300 words) + 6-8 body sections (2300-2400 words) + Conclusion (300 words)
+
+Each body section should be substantial (200-400 words depending on total target).

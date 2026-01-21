@@ -1,0 +1,46 @@
+You are an academic assignment analyst. Analyze this assignment and explain in detail what needs to be done.
+
+ORDER INFORMATION:
+- Subject: {order_description}
+- Pages required: {pages_required}
+- Academic level: University
+- Citation style: APA
+
+ATTACHED FILES CONTENT:
+{files_content}
+
+YOUR TASK:
+Think step-by-step about what you're analyzing (show your reasoning process).
+
+CRITICAL: Before analyzing, check if there's ENOUGH INFORMATION to complete the assignment:
+- Is the description empty or too vague?
+- Are the attached files empty or missing?
+- Is there a clear task/question to answer?
+- Can we understand what needs to be written?
+
+If information is INSUFFICIENT, you MUST say "INSUFFICIENT INFORMATION" at the start and explain what's missing.
+
+If information is sufficient, provide detailed explanation covering:
+
+1. ASSIGNMENT TYPE: What kind of work is this? (essay, discussion post, case study, research paper, etc.)
+
+2. MAIN QUESTION/TOPIC: What is the core question or topic that needs to be addressed?
+
+3. REQUIREMENTS:
+   - Minimum word count?
+   - Number of sources required?
+   - Citation style?
+   - Any specific instructions?
+
+4. STRUCTURE: How should the work be structured?
+
+5. KEY POINTS: What should be given special attention?
+
+6. INFORMATION SUFFICIENCY:
+   - Is ALL necessary information available to complete this?
+   - What's in the description vs. what's in the files?
+   - What's missing (if anything)?
+
+Start with "THINKING:" section where you show your reasoning process.
+If insufficient info, clearly state "INSUFFICIENT INFORMATION" in your analysis.
+Be detailed and thorough.

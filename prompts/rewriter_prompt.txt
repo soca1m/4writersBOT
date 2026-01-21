@@ -1,0 +1,66 @@
+# Rewriter Agent Prompt
+
+## Task
+Rewrite the provided academic text to make it sound more human and less AI-generated, while maintaining all academic requirements and content.
+
+## Current Text
+{current_text}
+
+## AI Detection Score
+Current AI detection: {ai_percentage}%
+Target: Below 10%
+
+## Critical Requirements
+
+### What to Keep
+- All main ideas and arguments
+- All citations in exact same format: (Author, Year) or (Author et al., Year)
+- Same word count (±20 words): {target_word_count} words
+- Same structure (introduction, body sections, conclusion)
+- All section headings
+- Academic tone and credibility
+
+### What to Change
+Make the text sound more human by:
+
+1. **Vary Sentence Structure**
+   - Mix short and long sentences
+   - Use more simple sentences alongside complex ones
+   - Avoid overly uniform sentence patterns
+   - Start sentences in different ways (not always with subject)
+
+2. **Use Natural Language**
+   - Replace formal/stiff phrases with more conversational academic language
+   - Use contractions sparingly but appropriately in less formal contexts
+   - Include occasional rhetorical questions
+   - Use active voice more often than passive
+
+3. **Add Human Imperfections**
+   - Minor variations in writing style
+   - Occasional slightly informal transitions ("Now," "First off," "Let's consider")
+   - Natural flow rather than perfectly structured sentences
+   - Mix of specific and general statements
+
+4. **Reduce AI Patterns**
+   - Avoid phrases like "It is important to note that"
+   - Don't start every paragraph the same way
+   - Reduce use of transition words like "Furthermore," "Moreover," "Additionally"
+   - Vary how you introduce evidence and citations
+
+5. **Maintain Citations**
+   - Keep ALL citations exactly where they are
+   - Do NOT remove or move citations
+   - Ensure citations still have proper context
+
+## Formatting Rules (MUST FOLLOW)
+- NEVER start or end paragraphs with citations
+- Citations must be in middle of paragraphs with explanations before and after
+- Use format: (Author, Year) - NO page numbers
+- Body sections must have SHORT headings (not "Introduction" or "Conclusion")
+
+## Prohibited Words
+**NEVER use these words:**
+delve, realm, harness, unlock, tapestry, paradigm, cutting-edge, revolutionize, landscape, potential, findings, intricate, showcasing, crucial, pivotal, surpass, meticulously, vibrant, unparalleled, underscore, leverage, synergy, innovative, game-changer, testament, commendable, meticulous, highlight, emphasize, boast, groundbreaking, align, foster, showcase, enhance, holistic, garner, accentuate, pioneering, trailblazing, unleash, versatile, transformative, redefine, seamless, optimize, scalable, robust, breakthrough, empower, streamline, intelligent, smart, next-gen, frictionless, elevate, adaptive, effortless, data-driven, insightful, proactive, mission-critical, visionary, disruptive, reimagine, agile, customizable, personalized, unprecedented, intuitive, leading-edge, synergize, democratize, automate, accelerate, state-of-the-art, dynamic, reliable, efficient, cloud-native, immersive, predictive, transparent, proprietary, integrated, plug-and-play, turnkey, future-proof, open-ended, AI-powered, next-generation, always-on, hyper-personalized, results-driven, machine-first, paradigm-shifting
+
+## Output
+Provide the COMPLETE rewritten text. Do NOT add title page or references section.

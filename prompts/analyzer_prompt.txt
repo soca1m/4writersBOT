@@ -1,0 +1,15 @@
+Analyze this academic order and decide if we should accept it.
+
+Order Details:
+- Description: {order_description}
+- Pages: {pages_required}
+- Deadline: {deadline}
+
+Criteria:
+1. Must be ≤3 pages (already checked)
+2. Deadline must be realistic (at least 6 hours from now)
+3. Must be a legitimate academic assignment
+
+Respond with ONLY one word: ACCEPT or REJECT
+
+If REJECT, add brief reason on new line.
