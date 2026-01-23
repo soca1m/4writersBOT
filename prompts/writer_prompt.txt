@@ -14,62 +14,175 @@ Write an academic essay/assignment based on the requirements and sources provide
 
 ### Word Count
 - Total: {target_word_count} words
-- Introduction: ~10% of total (minimum 3 coherent sentences, last sentence is thesis statement)
+- Introduction: ~10% of total
 - Conclusion: ~10% of total
 - Body: ~80% of total
 
 ### Citation Style (APA)
 - Use in-text citations: (Author, Year) or (Author et al., Year)
-- **DO NOT include page numbers** in citations
+- **DO NOT include page numbers** in citations unless using direct quotes
 - Distribute citations throughout paragraphs
 - Follow this pattern: Sen1. Sen2 (source). Sen3, sen4. sen5 (source). sen6.
 - **NEVER start or end a paragraph with a citation**
 - Always explain/support cited ideas before or after the citation
+- Direct quotes MUST have page numbers: (Author, Year, p. X) or (Author, Year, para. X)
 
-### Structure Requirements
+---
 
-**Introduction Paragraph:**
-- 10% of total word count (~30-40 words for 300-word paper, ~60-80 words for 600-word paper)
-- Minimum 3 coherent sentences
-- Last sentence MUST be a thesis statement
-- Thesis should state essay direction using -ing verbs (e.g., "examining", "exploring", "analyzing")
-- Do NOT use direct statements like "This essay will..."
+## STRUCTURE REQUIREMENTS
 
-**Body Paragraphs:**
-- Each paragraph MUST start with an introductory/topic sentence
-- Each paragraph MUST end with a concluding sentence
-- NO citations at the start of paragraphs
-- NO citations at the end of paragraphs
-- All cited ideas must be supported with explanation
+### Introduction Paragraph
+**MUST:**
+- Be directly connected to the point of discussion
+- Be proportional to paper length (10% of total words)
+- End with a clear thesis statement
+- Have at least 3 coherent sentences
 
-**Section Headings:**
-- Use SHORT headings for all sections EXCEPT introduction and conclusion
-- Headings should reflect the content of the section
-- Do NOT use generic headings like "Body" or "Main Discussion"
+**MUST NOT:**
+- Include too much background information
+- Use dictionary or encyclopedia definitions unless required
+- Announce intentions (NEVER: "In this paper, it will be analyzed/discussed...")
 
-**Conclusion Paragraph:**
-- 10% of total word count
-- Summarize key points
-- Provide final assessment/thoughts
+**THESIS STATEMENT RULES:**
+- MUST be at the END of introduction
+- MUST follow ISO rule: Idea + Support + Order
+- MUST NOT be a question
+- MUST NOT restate the task
+- MUST NOT announce intentions ("This paper will discuss...")
 
-### Writing Style
-- Academic but NOT overly smart
-- Write as if using own words while maintaining academic tone
-- Ideas must connect logically
-- Avoid sounding like AI
+**Good thesis example:**
+"Remote work increases employee productivity because it eliminates commuting stress, provides flexible scheduling, and creates comfortable work environments."
+- IDEA: Remote work increases productivity
+- SUPPORT: Three reasons why
+- ORDER: Shows the structure of body paragraphs
+
+**Bad thesis examples (NEVER USE):**
+- "This paper discusses remote work" - announces intention
+- "This essay will examine..." - announces intention
+- "This essay examines how..." - announces intention
+- "The following paper analyzes..." - announces intention
+
+**How to write thesis WITHOUT announcing:**
+Instead of: "This essay examines how gender symmetry manifests in domestic violence..."
+Write: "Gender symmetry in domestic violence, while controversial, reveals important patterns in perpetration rates, challenging traditional frameworks and requiring new justice approaches."
+
+---
+
+### Body Paragraphs
+**MUST:**
+- Each paragraph concerns ONE idea only
+- Start with a TOPIC SENTENCE (presents idea + connects to thesis)
+- End with a CONCLUDING SENTENCE (summarizes the paragraph)
+- Have at least 5-6 sentences
+- Support the thesis directly
+- Be approximately equal in size
+- Be arranged logically (chronologically, spatially, or importance order)
+- Contain only relevant information
+
+**MUST NOT:**
+- Be extremely short (1-2 sentences) or extremely long (entire page)
+- Start with cited text or citation
+- End with cited text or citation - THE LAST SENTENCE MUST BE YOUR OWN WORDS WITHOUT (Author, Year)
+- Contain off-topic or filler content
+
+**CRITICAL RULE:** The LAST sentence of EVERY body paragraph must be YOUR concluding thought WITHOUT any citation.
+WRONG: "...leading to better outcomes (Smith, 2020)."
+RIGHT: "...leading to better outcomes (Smith, 2020). These findings demonstrate the importance of considering multiple factors in treatment approaches."
+
+**PARAGRAPH STRUCTURE:**
+1. Topic sentence (your idea, connects to thesis)
+2. Explanation of the claim
+3. Evidence/example with citation (Author, Year)
+4. Interpretation/explanation of evidence
+5. More supporting points if needed
+6. Concluding sentence (summarizes paragraph, NO citation)
+
+**EXAMPLE PARAGRAPH:**
+"During the Great Depression, people across the United States faced many hardships and life-changing adversity. Many suffered from low incomes, poor living conditions, and mental anguish (Smith, 2020). In fact, some men went the entire Depression without finding a job and found it difficult to accept financial help from the government. This means that their families lived below the poverty line for extended periods. African Americans and business owners were two groups particularly affected by the economic downturn, demonstrating that the Depression impacted all demographics (Johnson & Lee, 2021). Every American, regardless of background, shared similar Depression experiences."
+
+Notice:
+- Topic sentence: first sentence (no citation)
+- Citations in MIDDLE of paragraph
+- Concluding sentence: last sentence (no citation)
+- Each citation is explained before and after
+
+---
+
+### Section Headings
+- Use SHORT, descriptive headings for body sections
+- Headings should reflect content
+- Do NOT use generic headings ("Body", "Main Discussion", "Section 1")
+- Introduction and Conclusion do NOT need headings
+
+---
+
+### Conclusion Paragraph
+**MUST:**
+- Summarize the main ideas of the paper
+- Usually start with a restatement of thesis (in different words)
+- Be ~10% of total word count
+
+**MUST NOT:**
+- Be absent
+- Be a copy-pasted introduction
+- Contain new information or arguments
+- Contain in-text citations or quotes
+- Introduce new ideas
+
+---
+
+## WRITING STYLE
+
+### Academic Tone
+- Formal language only
+- NO contractions (don't, isn't, won't - use do not, is not, will not)
+- NO first/second person (I, we, you, my, our, your) unless reflection paper
+- NO idioms or colloquial expressions
+- NO phrasal verbs when formal alternatives exist
+- NO bullet points in essay body
+- NO conjunctions at sentence beginning (And, But, Or)
+- NO rhetorical questions
+- NO "this" or "that" as standalone subjects
+- Avoid word repetitions (use thesaurus for synonyms)
+- Avoid wordiness ("It should be stressed that..." - just state the point)
 
 ### Prohibited Words
-**NEVER use these words:**
-delve, realm, harness, unlock, tapestry, paradigm, cutting-edge, revolutionize, landscape, potential, findings, intricate, showcasing, crucial, pivotal, surpass, meticulously, vibrant, unparalleled, underscore, leverage, synergy, innovative, game-changer, testament, commendable, meticulous, highlight, emphasize, boast, groundbreaking, align, foster, showcase, enhance, holistic, garner, accentuate, pioneering, trailblazing, unleash, versatile, transformative, redefine, seamless, optimize, scalable, robust, breakthrough, empower, streamline, intelligent, smart, next-gen, frictionless, elevate, adaptive, effortless, data-driven, insightful, proactive, mission-critical, visionary, disruptive, reimagine, agile, customizable, personalized, unprecedented, intuitive, leading-edge, synergize, democratize, automate, accelerate, state-of-the-art, dynamic, reliable, efficient, cloud-native, immersive, predictive, transparent, proprietary, integrated, plug-and-play, turnkey, future-proof, open-ended, AI-powered, next-generation, always-on, hyper-personalized, results-driven, machine-first, paradigm-shifting
+**NEVER use these AI-sounding words:**
+delve, realm, harness, unlock, tapestry, paradigm, cutting-edge, revolutionize, landscape, potential, findings, intricate, showcasing, crucial, pivotal, surpass, meticulously, vibrant, unparalleled, underscore, leverage, synergy, innovative, game-changer, testament, commendable, meticulous, highlight, emphasize, boast, groundbreaking, align, foster, showcase, enhance, holistic, garner, accentuate, pioneering, trailblazing, unleash, versatile, transformative, redefine, seamless, optimize, scalable, robust, breakthrough, empower, streamline, intelligent, smart, next-gen, frictionless, elevate, adaptive, effortless, data-driven, insightful, proactive, mission-critical, visionary, disruptive, reimagine, agile, customizable, personalized, unprecedented, intuitive, leading-edge, synergize, democratize, automate, accelerate, state-of-the-art, dynamic, reliable, efficient, cloud-native, immersive, predictive, transparent, proprietary, integrated, plug-and-play, turnkey, future-proof, open-ended, AI-powered, next-generation, always-on, hyper-personalized, results-driven, machine-first, paradigm-shifting, comprehensive, nuanced, multifaceted
 
-### Sources
-- Create realistic academic citations based on the topic
+### Prohibited Phrases in Introduction
+**NEVER start thesis or introduction with:**
+- "This essay will..."
+- "This paper examines..."
+- "This essay examines..."
+- "In this paper..."
+- "The purpose of this essay..."
+- "This report will discuss..."
+- Any variation of announcing what the paper will do
+
+---
+
+## SOURCES AND CITATIONS
+
+### Source Requirements
+- Use ONLY the provided sources
+- Sources must be cited in the text AND match references
+- All citations must be relevant to the point being made
+- Do NOT make up sources or citations
+
+### Citation Rules
 - Cite at least {required_sources} different sources
-- Use realistic author names and recent years (2019-2024)
-- Integrate citations naturally throughout the text
-- Ensure even distribution of citations across body paragraphs
+- Distribute citations evenly across body paragraphs
+- Direct quotes: maximum 10% of total text
+- Direct quotes MUST be explained (sandwich rule: introduce → quote → explain)
+- Statistical data needs page/paragraph numbers
 
-## Input Data
+### Provided Sources
+{sources_found}
+
+---
+
+## INPUT DATA
 
 **Assignment Details:**
 - Type: {assignment_type}
@@ -87,25 +200,31 @@ delve, realm, harness, unlock, tapestry, paradigm, cutting-edge, revolutionize, 
 **Specific Instructions:**
 {specific_instructions}
 
-## Example Citation Pattern
+---
 
-```
-The question of whether individuals of different genders participate in intimate partner violence (IPV) at comparable rates is debatable. As per Miller-Perrin et al. (2021), several studies have observed that females are as likely as men to engage in IPV against their male partners. This fact suggests gender symmetry, also known as gender parity, in this issue, challenging a traditional idea of men being the predominant IPV perpetrators.
-```
+## WORD COUNT PLANNING
 
-Notice:
-- Citation in the middle of paragraph
-- Explained before: "The question of..."
-- Explained after: "This fact suggests..."
-- NOT at start or end of paragraph
+**CRITICAL:** Output must be close to {target_word_count} words.
 
-## Output
+| Target | Introduction | Body Sections | Conclusion |
+|--------|--------------|---------------|------------|
+| 300 words | 30 words | 1-2 sections (210 words) | 30 words |
+| 600 words | 60 words | 2-3 sections (450 words) | 60 words |
+| 900 words | 90 words | 3-4 sections (700 words) | 90 words |
+| 1500 words | 150 words | 4-5 sections (1150 words) | 150 words |
+| 3000 words | 300 words | 6-8 sections (2400 words) | 300 words |
+
+Each body section: 200-400 words depending on total target.
+
+---
+
+## OUTPUT
+
 Generate the complete essay body now, following ALL instructions above.
 
-**CRITICAL:** The output must be close to {target_word_count} words. Plan your sections accordingly:
-- If target is 600 words: Introduction (60 words) + 2-3 body sections (400-450 words) + Conclusion (60 words)
-- If target is 900 words: Introduction (90 words) + 3-4 body sections (650-700 words) + Conclusion (90 words)
-- If target is 1500 words: Introduction (150 words) + 4-5 body sections (1100-1200 words) + Conclusion (150 words)
-- If target is 3000 words: Introduction (300 words) + 6-8 body sections (2300-2400 words) + Conclusion (300 words)
-
-Each body section should be substantial (200-400 words depending on total target).
+Remember:
+1. Every paragraph has opening + closing sentence (YOUR words, no citations)
+2. Citations only in MIDDLE of paragraphs
+3. Thesis at END of introduction
+4. NO new information in conclusion
+5. Academic tone throughout

@@ -1,209 +1,236 @@
 """
-LangGraph workflow для обработки заказов
+LangGraph workflow for order processing
+New architecture: 7 bots with clean transitions
+
+Flow:
+Bot 1 (Requirements) → Bot 2 (Writer:initial) → Bot 3 (Citations) →
+Bot 4 (Word Count) ↔ Bot 2 (expand) →
+Bot 5 (Quality) ↔ Bot 2 (revise) + Bot 3 (if reinsert) →
+Bot 6 (AI Check, max 5) → Bot 7 (References) → END
 """
 import logging
 from langgraph.graph import StateGraph, END
+
 from src.workflows.state import OrderWorkflowState
-from src.agents.analyzer import analyze_order_node
-from src.agents.requirements_extractor import extract_requirements_node
+from src.agents.requirements_analyzer import analyze_requirements_node
 from src.agents.writer import write_text_node
+from src.agents.citation_integrator import integrate_citations_node
 from src.agents.word_count_checker import check_word_count_node
+from src.agents.quality_checker import check_quality_node
 from src.agents.ai_detector import check_ai_detection_node
-from src.agents.rewriter import rewrite_text_node
+from src.agents.references_generator import generate_references_node
 
 logger = logging.getLogger(__name__)
 
 
 def create_order_workflow():
     """
-    Создает LangGraph workflow для обработки заказов
+    Creates LangGraph workflow for order processing
 
     Returns:
-        Скомпилированный граф
+        Compiled graph
     """
-    # Создаем граф
     workflow = StateGraph(OrderWorkflowState)
 
-    # Добавляем узлы (агенты)
-    workflow.add_node("analyze", analyze_order_node)
-    workflow.add_node("extract_requirements", extract_requirements_node)
-    workflow.add_node("write", write_text_node)
-    workflow.add_node("check_word_count", check_word_count_node)
-    workflow.add_node("check_ai_detection", check_ai_detection_node)
-    workflow.add_node("rewrite", rewrite_text_node)
+    # Add nodes (bots)
+    workflow.add_node("analyze_requirements", analyze_requirements_node)  # Bot 1
+    workflow.add_node("write", write_text_node)                           # Bot 2
+    workflow.add_node("integrate_citations", integrate_citations_node)    # Bot 3
+    workflow.add_node("check_word_count", check_word_count_node)          # Bot 4
+    workflow.add_node("check_quality", check_quality_node)                # Bot 5
+    workflow.add_node("check_ai", check_ai_detection_node)                # Bot 6
+    workflow.add_node("generate_references", generate_references_node)    # Bot 7
 
-    # Устанавливаем точку входа
-    workflow.set_entry_point("analyze")
+    # Set entry point
+    workflow.set_entry_point("analyze_requirements")
 
-    # Условное ребро после анализа
-    def should_continue_after_analysis(state: OrderWorkflowState) -> str:
-        """Решает продолжать ли после анализа"""
-        if state["status"] == "rejected":
-            logger.info(f"Order {state['order_id']} rejected, ending workflow")
-            return END
-        elif state["status"] == "accepted":
-            logger.info(f"Order {state['order_id']} accepted, extracting requirements")
-            return "extract_requirements"
-        else:
-            logger.warning(f"Unknown status: {state['status']}, ending workflow")
-            return END
+    # === Transitions ===
 
-    workflow.add_conditional_edges(
-        "analyze",
-        should_continue_after_analysis
-    )
-
-    # Условное ребро после extract_requirements
-    def should_continue_after_requirements(state: OrderWorkflowState) -> str:
-        """Решает продолжать ли после извлечения требований"""
-        if state["status"] == "insufficient_info":
-            logger.warning(f"Order {state['order_id']} has insufficient information, ending workflow")
-            return END
-        elif state["status"] == "requirements_extracted":
-            logger.info(f"Order {state['order_id']} requirements extracted, starting writing")
+    # After Bot 1 (Requirements)
+    def after_requirements(state: OrderWorkflowState) -> str:
+        if state["status"] == "requirements_extracted":
+            logger.info("Requirements extracted, starting writing")
             return "write"
+        elif state["status"] == "insufficient_info":
+            logger.warning("Insufficient info, ending workflow")
+            return END
+        else:
+            logger.error(f"Requirements failed: {state.get('error')}")
+            return END
+
+    workflow.add_conditional_edges("analyze_requirements", after_requirements)
+
+    # After Bot 2 (Writer)
+    def after_write(state: OrderWorkflowState) -> str:
+        mode = state.get("writer_mode", "initial")
+
+        if state["status"] == "text_written":
+            if mode == "initial":
+                # First write → go to citations
+                logger.info("Initial text written, adding citations")
+                return "integrate_citations"
+            elif mode == "expand":
+                # Expanded text → back to citations (they might need reinsertion)
+                logger.info("Text expanded, re-adding citations")
+                return "integrate_citations"
+            else:
+                logger.warning(f"Unknown write mode: {mode}")
+                return "integrate_citations"
+
+        elif state["status"] == "text_revised":
+            # After revision from quality check
+            citation_action = state.get("citation_action", "keep")
+            if citation_action == "reinsert":
+                logger.info("Text revised, reinserting citations")
+                return "integrate_citations"
+            else:
+                # Citations kept/adjusted, go back to quality check to verify fixes
+                logger.info("Text revised, re-checking quality")
+                return "check_quality"
+
         elif state["status"] == "failed":
-            logger.error(f"Order {state['order_id']} failed during requirements extraction")
+            logger.error("Writing failed")
             return END
+
         else:
-            logger.warning(f"Unknown status after requirements: {state['status']}, ending workflow")
+            logger.warning(f"Unknown status after write: {state['status']}")
             return END
 
-    workflow.add_conditional_edges(
-        "extract_requirements",
-        should_continue_after_requirements
-    )
+    workflow.add_conditional_edges("write", after_write)
 
-    # Условное ребро после write
-    def should_continue_after_write(state: OrderWorkflowState) -> str:
-        """Решает продолжать ли после написания"""
-        if state["status"] == "text_generated":
-            logger.info(f"Order {state['order_id']} text generated, checking word count")
+    # After Bot 3 (Citations)
+    def after_citations(state: OrderWorkflowState) -> str:
+        if state["status"] == "citations_added":
+            logger.info("Citations added, checking word count")
             return "check_word_count"
-        elif state["status"] == "writing_failed":
-            logger.error(f"Order {state['order_id']} writing failed")
-            return END
         else:
-            logger.warning(f"Unknown status after write: {state['status']}, ending workflow")
-            return END
+            logger.warning(f"Citation status: {state['status']}, checking word count anyway")
+            return "check_word_count"
 
-    workflow.add_conditional_edges(
-        "write",
-        should_continue_after_write
-    )
+    workflow.add_conditional_edges("integrate_citations", after_citations)
 
-    # Условное ребро после check_word_count (с циклом обратно к write)
-    def should_continue_after_word_count(state: OrderWorkflowState) -> str:
-        """Решает продолжать ли после проверки слов"""
-        if state["status"] == "insufficient_words":
-            logger.warning(f"Order {state['order_id']} needs more words, expanding text")
-            return "write"  # Возвращаемся к write для дополнения
-        elif state["status"] == "too_many_words":
-            logger.warning(f"Order {state['order_id']} has too many words, proceeding to AI check")
-            return "check_ai_detection"
-        elif state["status"] == "word_count_ok":
-            logger.info(f"Order {state['order_id']} word count is acceptable, checking AI detection")
-            return "check_ai_detection"
-        elif state["status"] == "word_count_failed":
-            logger.error(f"Order {state['order_id']} word count check failed")
-            return END
+    # After Bot 4 (Word Count)
+    def after_word_count(state: OrderWorkflowState) -> str:
+        if state["status"] == "word_count_ok":
+            logger.info("Word count OK, checking quality")
+            return "check_quality"
+        elif state["status"] == "word_count_expanding":
+            logger.info("Word count low, expanding text")
+            return "write"  # Goes to Bot 2 in expand mode
         else:
-            logger.warning(f"Unknown status after word count: {state['status']}, ending workflow")
-            return END
+            logger.warning(f"Word count status: {state['status']}, checking quality")
+            return "check_quality"
 
-    workflow.add_conditional_edges(
-        "check_word_count",
-        should_continue_after_word_count
-    )
+    workflow.add_conditional_edges("check_word_count", after_word_count)
 
-    # Условное ребро после check_ai_detection
-    def should_continue_after_ai_check(state: OrderWorkflowState) -> str:
-        """Решает продолжать ли после проверки AI"""
-        if state["status"] == "ai_check_passed":
-            logger.info(f"Order {state['order_id']} passed AI detection, workflow complete")
-            return END
-        elif state["status"] == "ai_detected":
-            logger.warning(f"Order {state['order_id']} detected as AI, rewriting")
-            return "rewrite"
-        elif state["status"] == "ai_check_failed":
-            logger.error(f"Order {state['order_id']} AI check failed")
-            return END
+    # After Bot 5 (Quality)
+    def after_quality(state: OrderWorkflowState) -> str:
+        if state["status"] == "quality_ok":
+            logger.info("Quality OK, checking AI")
+            return "check_ai"
+        elif state["status"] == "quality_revising":
+            logger.info("Quality issues, revising text")
+            return "write"  # Goes to Bot 2 in revise mode
         else:
-            logger.warning(f"Unknown status after AI check: {state['status']}, ending workflow")
-            return END
+            logger.warning(f"Quality status: {state['status']}, checking AI anyway")
+            return "check_ai"
 
-    workflow.add_conditional_edges(
-        "check_ai_detection",
-        should_continue_after_ai_check
-    )
+    workflow.add_conditional_edges("check_quality", after_quality)
 
-    # Условное ребро после rewrite (возвращаемся на проверку AI)
-    def should_continue_after_rewrite(state: OrderWorkflowState) -> str:
-        """Решает продолжать ли после переписывания"""
-        if state["status"] == "text_rewritten":
-            logger.info(f"Order {state['order_id']} text rewritten, checking AI again")
-            return "check_ai_detection"
-        elif state["status"] == "rewrite_failed":
-            logger.error(f"Order {state['order_id']} rewrite failed")
-            return END
+    # After Bot 6 (AI Detection)
+    def after_ai_check(state: OrderWorkflowState) -> str:
+        if state["status"] == "ai_passed":
+            logger.info("AI check passed, generating references")
+            return "generate_references"
+        elif state["status"] == "ai_humanizing":
+            logger.info("AI detected, rechecking after humanization")
+            return "check_ai"  # Loop back to check again
         else:
-            logger.warning(f"Unknown status after rewrite: {state['status']}, ending workflow")
-            return END
+            logger.warning(f"AI check status: {state['status']}, generating references anyway")
+            return "generate_references"
 
-    workflow.add_conditional_edges(
-        "rewrite",
-        should_continue_after_rewrite
-    )
+    workflow.add_conditional_edges("check_ai", after_ai_check)
 
-    # Компилируем граф
+    # After Bot 7 (References) → END
+    workflow.add_edge("generate_references", END)
+
+    # Compile
     app = workflow.compile()
-
     logger.info("✅ Order workflow compiled successfully")
+
     return app
 
 
 async def process_order(order_data: dict) -> OrderWorkflowState:
     """
-    Обрабатывает заказ через workflow
+    Process order through workflow
 
     Args:
-        order_data: Данные заказа
+        order_data: Order data dict
 
     Returns:
-        Финальное состояние
+        Final state
     """
     logger.info(f"🚀 Starting workflow for order {order_data.get('order_id', 'unknown')}")
 
-    # Создаем workflow
     app = create_order_workflow()
 
-    # Создаем начальное состояние
+    # Calculate target word count
+    pages = order_data.get('pages', 1)
+    target_word_count = pages * 300
+
+    # Create initial state
     initial_state = OrderWorkflowState(
+        # Order data
         order_id=order_data.get('order_id', 'unknown'),
         order_index=order_data.get('order_index', ''),
         order_description=order_data.get('description', ''),
-        pages_required=order_data.get('pages', 0),
+        pages_required=pages,
         deadline=order_data.get('deadline', ''),
         attached_files=order_data.get('files', []),
+
+        # Bot 1
         requirements={},
         parsed_files_content="",
-        sources_found=[],
-        quotes=[],
+
+        # Bot 2
+        writer_mode="initial",
         draft_text="",
+        text_with_citations="",
+
+        # Bot 3
+        sources_found=[],
+        citations_inserted=False,
+
+        # Bot 4
         word_count=0,
-        meets_requirements=False,
+        target_word_count=target_word_count,
+        word_count_ok=False,
+        word_count_attempts=0,
+
+        # Bot 5
+        quality_ok=False,
         quality_issues=[],
-        plagiarism_score=100.0,
-        plagiarism_details={},
-        rewrite_attempts=0,
-        final_text="",
+        quality_suggestions=[],
+        citation_action="keep",
+        quality_check_attempts=0,
+
+        # Bot 6
+        ai_score=0.0,
+        ai_sentences=[],
+        ai_check_attempts=0,
+        ai_check_passed=False,
+
+        # Bot 7
         references="",
-        status="analyzing",
+
+        # Final
+        final_text="",
+        status="started",
         agent_logs=[],
         error=None
     )
 
-    # Запускаем workflow
     try:
         final_state = await app.ainvoke(initial_state)
 
@@ -213,7 +240,8 @@ async def process_order(order_data: dict) -> OrderWorkflowState:
         return final_state
 
     except Exception as e:
-        logger.error(f"❌ Workflow failed for order {order_data.get('order_id')}: {e}")
+        logger.error(f"❌ Workflow failed: {e}")
+        logger.exception(e)
         return {
             **initial_state,
             "status": "failed",

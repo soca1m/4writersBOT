@@ -160,9 +160,12 @@ def get_requirements_extractor_prompt(
     """
     loader: PromptLoader = get_prompt_loader()
 
+    target_word_count = pages_required * 300
+
     variables: Dict[str, Any] = {
         "order_description": order_description,
         "pages_required": pages_required,
+        "target_word_count": target_word_count,
         "files_content": files_content if files_content else "No files attached"
     }
 
@@ -176,7 +179,8 @@ def get_writer_prompt(
     required_sources: int,
     main_question: str,
     files_content: str = "",
-    specific_instructions: str = ""
+    specific_instructions: str = "",
+    sources_found: list = None
 ) -> str:
     """
     Возвращает промпт для Writer агента
@@ -189,11 +193,30 @@ def get_writer_prompt(
         main_question: Главный вопрос для ответа
         files_content: Содержимое прикрепленных файлов
         specific_instructions: Дополнительные специфические инструкции
+        sources_found: Список найденных академических источников
 
     Returns:
         Промпт для написания текста
     """
     loader: PromptLoader = get_prompt_loader()
+
+    # Format sources if provided
+    sources_text = ""
+    if sources_found:
+        sources_text = "USE THESE ACADEMIC SOURCES (cite them in your essay):\n\n"
+        for i, source in enumerate(sources_found, 1):
+            sources_text += f"SOURCE {i}:\n"
+            sources_text += f"  Citation: {source.get('citation', 'Unknown')}\n"
+            sources_text += f"  Authors: {source.get('authors', 'Unknown')}\n"
+            sources_text += f"  Title: {source.get('title', 'Unknown')}\n"
+            sources_text += f"  Year: {source.get('year', 'n.d.')}\n"
+            if source.get('extracted_ideas'):
+                sources_text += f"  Key ideas to use:\n"
+                for idea in source['extracted_ideas']:
+                    sources_text += f"    - {idea}\n"
+            sources_text += "\n"
+    else:
+        sources_text = "No pre-found sources. Create realistic academic citations based on the topic."
 
     variables: Dict[str, Any] = {
         "assignment_type": assignment_type,
@@ -202,7 +225,8 @@ def get_writer_prompt(
         "required_sources": required_sources,
         "main_question": main_question,
         "files_content": files_content if files_content else "No additional files provided.",
-        "specific_instructions": specific_instructions if specific_instructions else "None"
+        "specific_instructions": specific_instructions if specific_instructions else "None",
+        "sources_found": sources_text
     }
 
     return loader.load_prompt(PromptType.WRITER, variables)

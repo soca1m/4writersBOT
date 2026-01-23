@@ -85,16 +85,10 @@ def get_fast_model():
     Возвращает быструю и дешевую модель для простых задач
 
     Returns:
-        Быстрая LLM модель (Claude Haiku или GPT-3.5)
+        Быстрая LLM модель (gpt-5-mini)
     """
-    # Пробуем Claude Haiku (быстрый и дешевый)
-    model = get_claude_model(model_name="claude-3-haiku-20240307", temperature=0.3)
-
-    if model:
-        return model
-
-    # Если нет Claude, пробуем GPT-3.5
-    return get_openai_model(model_name="gpt-3.5-turbo", temperature=0.3)
+    # Используем gpt-5-mini (быстрый и дешевый)
+    return get_openai_model(model_name="gpt-5-mini", temperature=0.3)
 
 
 def get_smart_model():
@@ -102,20 +96,13 @@ def get_smart_model():
     Возвращает умную модель для сложных задач
 
     Returns:
-        Мощная LLM модель (GPT-4 или Claude Sonnet)
+        Мощная LLM модель (gpt-5-mini)
     """
-    # Сначала пробуем GPT-4
-    model = get_openai_model(model_name="gpt-4o", temperature=0.7)
+    # Используем gpt-5-mini
+    model = get_openai_model(model_name="gpt-5-mini", temperature=0.7)
 
     if model:
-        logger.info("Using GPT-4o for smart tasks")
-        return model
-
-    # Если нет GPT, пробуем Claude Sonnet
-    model = get_claude_model(model_name="claude-3-5-sonnet-20241022", temperature=0.7)
-
-    if model:
-        logger.info("Using Claude Sonnet for smart tasks")
+        logger.info("Using gpt-5-mini for smart tasks")
         return model
 
     logger.error("No smart model available")

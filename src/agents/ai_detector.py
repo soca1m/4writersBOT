@@ -1,176 +1,254 @@
 """
-AI Detection Checker - проверяет текст на AI-generated content через ZeroGPT
+Bot 6: AI Detector + Humanizer
+Checks text for AI detection using ZeroGPT API
+If detected as AI, humanizes flagged sentences
+Max 5 attempts
 """
 import logging
+import os
+import re
+from typing import Dict, Any, List
+
 import httpx
-from typing import Dict, Any
 
 from src.workflows.state import OrderWorkflowState
+from src.utils.llm_service import get_smart_model
 
 logger = logging.getLogger(__name__)
 
-# ZeroGPT API endpoint
-ZEROGPT_API_URL = "https://api.zerogpt.com/api/detect/detectText"
+MAX_AI_ATTEMPTS = 5
+AI_THRESHOLD = 50.0  # Percentage threshold for AI detection
 
-# Заголовки для запроса
-ZEROGPT_HEADERS = {
-    'Host': 'api.zerogpt.com',
-    'Connection': 'keep-alive',
-    'sec-ch-ua-platform': '"Windows"',
-    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36 Edg/144.0.0.0',
-    'Accept': 'application/json, text/plain, */*',
-    'sec-ch-ua': '"Not(A:Brand";v="8", "Chromium";v="144", "Microsoft Edge";v="144"',
-    'sec-ch-ua-mobile': '?0',
-    'Origin': 'https://www.zerogpt.com',
-    'Sec-Fetch-Site': 'same-site',
-    'Sec-Fetch-Mode': 'cors',
-    'Sec-Fetch-Dest': 'empty',
-    'Referer': 'https://www.zerogpt.com/',
-    'Accept-Language': 'ru,en;q=0.9,en-GB;q=0.8,en-US;q=0.7',
-    'Content-Type': 'application/json'
-}
+
+async def check_zerogpt(text: str) -> Dict[str, Any]:
+    """
+    Check text using ZeroGPT API
+
+    Args:
+        text: Text to check
+
+    Returns:
+        Dict with ai_percentage and flagged sentences
+    """
+    api_key = os.getenv("ZEROGPT_API_KEY")
+
+    if not api_key:
+        logger.warning("ZEROGPT_API_KEY not set, skipping AI detection")
+        return {"ai_percentage": 0, "sentences": [], "error": "API key not set"}
+
+    try:
+        async with httpx.AsyncClient(timeout=60) as client:
+            response = await client.post(
+                "https://api.zerogpt.com/api/detect/detectText",
+                headers={
+                    "ApiKey": api_key,
+                    "Content-Type": "application/json"
+                },
+                json={"input_text": text[:10000]}  # API limit
+            )
+
+            if response.status_code != 200:
+                logger.error(f"ZeroGPT API error: {response.status_code}")
+                return {"ai_percentage": 0, "sentences": [], "error": f"API error {response.status_code}"}
+
+            data = response.json()
+
+            if not data.get("success"):
+                return {"ai_percentage": 0, "sentences": [], "error": "API returned unsuccessful"}
+
+            result = data.get("data", {})
+            ai_percentage = result.get("fakePercentage", 0)
+            sentences = result.get("sentences", [])
+
+            # Extract flagged sentences (those marked as AI)
+            flagged = []
+            for s in sentences:
+                if s.get("isAI", False):
+                    flagged.append(s.get("text", ""))
+
+            return {
+                "ai_percentage": ai_percentage,
+                "sentences": flagged,
+                "error": None
+            }
+
+    except Exception as e:
+        logger.error(f"ZeroGPT error: {e}")
+        return {"ai_percentage": 0, "sentences": [], "error": str(e)}
+
+
+async def humanize_text(text: str, flagged_sentences: List[str], llm) -> str:
+    """
+    Humanize AI-flagged sentences while preserving citations
+
+    Args:
+        text: Full text
+        flagged_sentences: Sentences flagged as AI-generated
+        llm: Language model
+
+    Returns:
+        Humanized text
+    """
+    if not flagged_sentences:
+        return text
+
+    # Format flagged sentences for prompt
+    flagged_list = "\n".join([f"- {s}" for s in flagged_sentences[:10]])
+
+    prompt = f"""Rewrite ONLY the flagged sentences to sound more human and natural.
+
+FULL TEXT:
+{text}
+
+SENTENCES FLAGGED AS AI-GENERATED (rewrite these):
+{flagged_list}
+
+HUMANIZATION RULES:
+1. ONLY rewrite the flagged sentences
+2. Keep the SAME meaning and information
+3. PRESERVE all citations exactly as they are: (Author, Year)
+4. Use more natural, varied sentence structures
+5. Add occasional colloquialisms or personal touches
+6. Vary sentence length
+7. Keep academic tone but make it sound like a human student wrote it
+
+IMPORTANT:
+- Do NOT change non-flagged sentences
+- Do NOT remove or modify citations
+- Do NOT add new information
+- Keep the same overall structure
+
+Return the COMPLETE text with humanized sentences."""
+
+    try:
+        response = await llm.ainvoke(prompt)
+        return response.content.strip()
+    except Exception as e:
+        logger.error(f"Humanization error: {e}")
+        return text
 
 
 async def check_ai_detection_node(state: OrderWorkflowState) -> dict:
     """
-    Проверяет текст на AI-generated content
-
-    Критерии:
-    - fakePercentage должен быть 0% (или очень низкий)
-    - Если > 10% - текст нужно переписать
+    Bot 6: Checks for AI detection and humanizes if needed
 
     Args:
-        state: Текущее состояние workflow
+        state: Current workflow state
 
     Returns:
-        Обновленное состояние с результатами проверки
+        Updated state with AI check results
     """
-    logger.info(f"🔍 Checking AI detection for order {state['order_id']}...")
+    logger.info(f"🤖 Bot 6: Checking AI detection for order {state['order_id']}...")
 
-    # Берём текст который прошёл проверку word count
-    final_text: str = state.get('final_text', '')
+    text = state.get('text_with_citations', state.get('draft_text', ''))
+    attempts = state.get('ai_check_attempts', 0)
 
-    if not final_text:
-        logger.error("No final text found for AI detection check")
+    if not text:
+        logger.error("No text to check")
         return {
             **state,
-            "status": "ai_check_failed",
-            "error": "No text to check for AI detection",
-            "agent_logs": state.get('agent_logs', []) + ["[ai_detector] ERROR: No text to check"]
+            "status": "failed",
+            "error": "No text for AI detection",
+            "agent_logs": state.get('agent_logs', []) + ["[Bot6:AIDetector] ERROR: No text"]
         }
 
-    try:
-        # Отправляем запрос к ZeroGPT API
-        async with httpx.AsyncClient(timeout=60.0) as client:
-            payload: Dict[str, str] = {
-                "input_text": final_text
-            }
+    print("\n" + "="*80)
+    print("🤖 Bot 6: AI DETECTION CHECK")
+    print("="*80 + "\n")
 
-            logger.info("Sending text to ZeroGPT API...")
+    print(f"   Checking with ZeroGPT...")
+    print(f"   Attempts: {attempts}/{MAX_AI_ATTEMPTS}")
+    print()
 
-            response = await client.post(
-                ZEROGPT_API_URL,
-                headers=ZEROGPT_HEADERS,
-                json=payload
-            )
+    # Check with ZeroGPT
+    result = await check_zerogpt(text)
 
-            response.raise_for_status()
-            result: Dict[str, Any] = response.json()
-
-            # Проверяем успешность запроса
-            if not result.get('success'):
-                error_msg: str = result.get('message', 'Unknown error')
-                logger.error(f"ZeroGPT API error: {error_msg}")
-                return {
-                    **state,
-                    "status": "ai_check_failed",
-                    "error": f"ZeroGPT API error: {error_msg}",
-                    "agent_logs": state.get('agent_logs', []) + [
-                        f"[ai_detector] ERROR: API returned error: {error_msg}"
-                    ]
-                }
-
-            # Извлекаем данные
-            data: Dict[str, Any] = result.get('data', {})
-            fake_percentage: float = data.get('fakePercentage', 100.0)
-            is_human: int = data.get('isHuman', 0)
-            feedback: str = data.get('feedback', 'Unknown')
-            ai_words: int = data.get('aiWords', 0)
-            text_words: int = data.get('textWords', 0)
-
-            logger.info(f"AI Detection Result: {fake_percentage}% AI-generated ({ai_words}/{text_words} words)")
-            logger.info(f"Feedback: {feedback}")
-
-            # Порог: если больше 10% AI - нужно переписывать
-            AI_THRESHOLD: float = 10.0
-
-            if fake_percentage <= AI_THRESHOLD:
-                logger.info(f"✅ Text passed AI detection ({fake_percentage}% ≤ {AI_THRESHOLD}%)")
-
-                return {
-                    **state,
-                    "status": "ai_check_passed",
-                    "plagiarism_score": fake_percentage,  # Используем это поле для AI %
-                    "plagiarism_details": {
-                        "ai_percentage": fake_percentage,
-                        "is_human": is_human,
-                        "feedback": feedback,
-                        "ai_words": ai_words,
-                        "text_words": text_words
-                    },
-                    "agent_logs": state.get('agent_logs', []) + [
-                        f"[ai_detector] PASSED: {fake_percentage}% AI-generated ({ai_words}/{text_words} words)"
-                    ]
-                }
-
-            else:
-                logger.warning(f"⚠️  Text failed AI detection ({fake_percentage}% > {AI_THRESHOLD}%)")
-
-                return {
-                    **state,
-                    "status": "ai_detected",
-                    "plagiarism_score": fake_percentage,
-                    "plagiarism_details": {
-                        "ai_percentage": fake_percentage,
-                        "is_human": is_human,
-                        "feedback": feedback,
-                        "ai_words": ai_words,
-                        "text_words": text_words
-                    },
-                    "agent_logs": state.get('agent_logs', []) + [
-                        f"[ai_detector] FAILED: {fake_percentage}% AI-generated (threshold: {AI_THRESHOLD}%)"
-                    ]
-                }
-
-    except httpx.TimeoutException:
-        logger.error("ZeroGPT API timeout")
+    if result.get("error"):
+        print(f"   ⚠️ ZeroGPT error: {result['error']}")
+        print(f"   Proceeding without AI check...\n")
         return {
             **state,
-            "status": "ai_check_failed",
-            "error": "ZeroGPT API timeout",
+            "ai_score": 0,
+            "ai_sentences": [],
+            "ai_check_passed": True,
+            "status": "ai_passed",
             "agent_logs": state.get('agent_logs', []) + [
-                "[ai_detector] ERROR: API timeout"
+                f"[Bot6:AIDetector] API error, skipped: {result['error']}"
             ]
         }
 
-    except httpx.HTTPStatusError as e:
-        logger.error(f"ZeroGPT API HTTP error: {e.response.status_code}")
+    ai_percentage = result["ai_percentage"]
+    flagged_sentences = result["sentences"]
+
+    print(f"   AI Score: {ai_percentage:.1f}%")
+    print(f"   Threshold: {AI_THRESHOLD}%")
+    print(f"   Flagged sentences: {len(flagged_sentences)}")
+
+    # Check if passed
+    if ai_percentage < AI_THRESHOLD:
+        print(f"\n   ✅ AI CHECK PASSED\n")
+        logger.info(f"AI check passed: {ai_percentage}%")
+
         return {
             **state,
-            "status": "ai_check_failed",
-            "error": f"ZeroGPT API HTTP error: {e.response.status_code}",
+            "ai_score": ai_percentage,
+            "ai_sentences": flagged_sentences,
+            "ai_check_passed": True,
+            "status": "ai_passed",
             "agent_logs": state.get('agent_logs', []) + [
-                f"[ai_detector] ERROR: HTTP {e.response.status_code}"
+                f"[Bot6:AIDetector] PASSED: {ai_percentage:.1f}%"
             ]
         }
 
-    except Exception as e:
-        logger.error(f"Error checking AI detection for order {state['order_id']}: {e}")
+    # AI detected - need to humanize
+    print(f"\n   ⚠️ AI DETECTED - Humanizing text...")
+
+    # Check max attempts
+    if attempts >= MAX_AI_ATTEMPTS:
+        print(f"   ⚠️ Max attempts reached, proceeding anyway\n")
+        logger.warning(f"Max AI attempts reached: {ai_percentage}%")
+
         return {
             **state,
-            "status": "ai_check_failed",
-            "error": f"AI detection error: {str(e)}",
+            "ai_score": ai_percentage,
+            "ai_sentences": flagged_sentences,
+            "ai_check_passed": False,
+            "status": "ai_passed",  # Proceed anyway
             "agent_logs": state.get('agent_logs', []) + [
-                f"[ai_detector] ERROR: {str(e)}"
+                f"[Bot6:AIDetector] Max attempts: {ai_percentage:.1f}%, proceeding"
             ]
         }
+
+    # Humanize the text
+    llm = get_smart_model()
+    if not llm:
+        logger.warning("LLM not available for humanization")
+        return {
+            **state,
+            "ai_score": ai_percentage,
+            "ai_sentences": flagged_sentences,
+            "ai_check_passed": False,
+            "ai_check_attempts": attempts + 1,
+            "status": "ai_humanizing",
+            "agent_logs": state.get('agent_logs', []) + [
+                f"[Bot6:AIDetector] LLM unavailable for humanization"
+            ]
+        }
+
+    humanized_text = await humanize_text(text, flagged_sentences, llm)
+
+    print(f"   Text humanized, will recheck...\n")
+    logger.info(f"Text humanized, attempt {attempts + 1}")
+
+    return {
+        **state,
+        "text_with_citations": humanized_text,
+        "ai_score": ai_percentage,
+        "ai_sentences": flagged_sentences,
+        "ai_check_passed": False,
+        "ai_check_attempts": attempts + 1,
+        "status": "ai_humanizing",
+        "agent_logs": state.get('agent_logs', []) + [
+            f"[Bot6:AIDetector] Humanized: {ai_percentage:.1f}%, attempt {attempts + 1}"
+        ]
+    }

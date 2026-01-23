@@ -1,8 +1,8 @@
 """
 State модель для LangGraph workflow обработки заказов
+Новая архитектура: 7 ботов с четким разделением ответственности
 """
-from typing import TypedDict, List, Dict, Optional, Annotated
-from langgraph.graph.message import add_messages
+from typing import TypedDict, List, Dict, Optional, Literal
 
 
 class OrderWorkflowState(TypedDict):
@@ -14,34 +14,72 @@ class OrderWorkflowState(TypedDict):
     order_description: str
     pages_required: int
     deadline: str
-    attached_files: List[str]  # Список путей к файлам или URLs
+    attached_files: List[str]  # Список путей к файлам
 
-    # ===== Извлеченные требования =====
-    requirements: Dict[str, any]  # {"type": "discussion_post", "min_words": 600, "sources": 4, etc.}
+    # ===== Bot 1: Requirements Analyzer =====
+    requirements: Dict[str, any]  # JSON от LLM с полями:
+    # {
+    #   "is_sufficient": bool,
+    #   "missing_info": str | None,
+    #   "assignment_type": str,
+    #   "main_topic": str,
+    #   "main_question": str,
+    #   "required_sources": int,
+    #   "search_keywords": str,
+    #   "citation_style": str,  # "APA", "MLA", "Harvard"
+    #   "structure": {
+    #       "introduction_words": int,
+    #       "body_sections": [{"heading": str, "words": int}],
+    #       "conclusion_words": int
+    #   },
+    #   "key_points": List[str],
+    #   "specific_instructions": str,
+    #   "target_word_count": int
+    # }
     parsed_files_content: str  # Содержимое всех прикрепленных файлов
 
-    # ===== Результаты research =====
-    sources_found: List[Dict[str, any]]  # [{"title": "...", "url": "...", "year": 2023, "content": "..."}]
-    quotes: List[Dict[str, any]]  # [{"quote": "...", "source_id": 0, "relevance": "..."}]
+    # ===== Bot 2: Writer =====
+    # Режимы: "initial", "expand", "revise"
+    writer_mode: Literal["initial", "expand", "revise"]
+    draft_text: str  # Текст БЕЗ цитат (raw text)
+    text_with_citations: str  # Текст С цитатами (после Bot 3)
 
-    # ===== Написанный текст =====
-    draft_text: str
+    # ===== Bot 3: Citation Integrator =====
+    sources_found: List[Dict[str, any]]  # Список найденных источников
+    # [{"title": str, "authors": str, "year": int, "citation": str, "abstract": str, "url": str}]
+    citations_inserted: bool  # Были ли вставлены цитаты
+
+    # ===== Bot 4: Word Count Checker =====
     word_count: int
+    target_word_count: int
+    word_count_ok: bool
+    word_count_attempts: int  # Попытки расширения текста (max 10)
 
-    # ===== Проверки качества =====
-    meets_requirements: bool
-    quality_issues: List[str]  # Список проблем, если есть
+    # ===== Bot 5: Quality Checker =====
+    quality_ok: bool
+    quality_issues: List[str]  # Найденные проблемы
+    quality_suggestions: List[str]  # Рекомендации
+    citation_action: Literal["keep", "adjust", "reinsert"]  # Что делать с цитатами после ревизии
+    quality_check_attempts: int  # Попытки исправления (max 10)
 
-    # ===== Плагиат =====
-    plagiarism_score: float  # 0-100%
-    plagiarism_details: Dict[str, any]
-    rewrite_attempts: int
+    # ===== Bot 6: AI Detector + Humanizer =====
+    ai_score: float  # 0-100% AI detected
+    ai_sentences: List[str]  # Предложения с высоким AI score
+    ai_check_attempts: int  # Попытки humanize (max 5)
+    ai_check_passed: bool
+
+    # ===== Bot 7: References Generator =====
+    references: str  # APA References section
 
     # ===== Финальный результат =====
-    final_text: str
-    references: str  # References section отдельно
-    status: str  # "analyzing", "researching", "writing", "checking", "rewriting", "done", "rejected", "failed"
+    final_text: str  # Полный текст с цитатами и references
+    status: str  # Текущий статус workflow
+    # Статусы:
+    # "started", "requirements_extracted", "insufficient_info",
+    # "text_written", "citations_added", "word_count_ok", "word_count_expanding",
+    # "quality_ok", "quality_revising", "ai_passed", "ai_humanizing",
+    # "completed", "failed"
 
-    # ===== Логи и сообщения (для отладки и истории) =====
-    agent_logs: List[str]  # Простые текстовые логи от агентов
-    error: Optional[str]  # Ошибка, если что-то пошло не так
+    # ===== Логи и ошибки =====
+    agent_logs: List[str]
+    error: Optional[str]

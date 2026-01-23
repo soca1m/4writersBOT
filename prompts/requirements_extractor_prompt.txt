@@ -1,46 +1,56 @@
-You are an academic assignment analyst. Analyze this assignment and explain in detail what needs to be done.
+You are an academic assignment analyst. Extract structured requirements from this assignment.
 
 ORDER INFORMATION:
-- Subject: {order_description}
+- Description: {order_description}
 - Pages required: {pages_required}
+- Minimum word count: {pages_required} × 300 = {target_word_count} words
 - Academic level: University
 - Citation style: APA
 
 ATTACHED FILES CONTENT:
 {files_content}
 
-YOUR TASK:
-Think step-by-step about what you're analyzing (show your reasoning process).
+TASK: Analyze the assignment and return a JSON response.
 
-CRITICAL: Before analyzing, check if there's ENOUGH INFORMATION to complete the assignment:
-- Is the description empty or too vague?
-- Are the attached files empty or missing?
-- Is there a clear task/question to answer?
-- Can we understand what needs to be written?
+WORD COUNT RULES:
+- Minimum words = pages × 300
+- For {pages_required} pages: minimum {target_word_count} words
+- Structure word distribution based on this minimum
 
-If information is INSUFFICIENT, you MUST say "INSUFFICIENT INFORMATION" at the start and explain what's missing.
+Return ONLY valid JSON (no markdown, no extra text):
 
-If information is sufficient, provide detailed explanation covering:
+```json
+{{
+  "is_sufficient": true/false,
+  "missing_info": "what's missing if not sufficient, or null",
+  "assignment_type": "essay/discussion post/case study/research paper/short answer",
+  "main_topic": "the core topic in 1-2 sentences",
+  "main_question": "the specific question(s) to answer",
+  "required_sources": number (default 2-3 based on page count),
+  "search_keywords": "3-5 academic keywords for source search",
+  "structure": {{
+    "introduction_words": number (~10% of {target_word_count}),
+    "body_sections": [
+      {{"heading": "Section 1 topic", "words": number}},
+      {{"heading": "Section 2 topic", "words": number}}
+    ],
+    "conclusion_words": number (~10% of {target_word_count})
+  }},
+  "key_points": ["important point 1", "important point 2"],
+  "specific_instructions": "any special requirements from the assignment"
+}}
+```
 
-1. ASSIGNMENT TYPE: What kind of work is this? (essay, discussion post, case study, research paper, etc.)
+STRUCTURE GUIDELINES by word count:
+- 300 words: intro 30 + 1-2 body sections 210 + conclusion 30
+- 600 words: intro 60 + 2-3 body sections 450 + conclusion 60
+- 900 words: intro 90 + 3-4 body sections 700 + conclusion 90
+- 1500 words: intro 150 + 4-5 body sections 1150 + conclusion 150
+- 3000 words: intro 300 + 6-8 body sections 2300 + conclusion 300
 
-2. MAIN QUESTION/TOPIC: What is the core question or topic that needs to be addressed?
+SOURCES GUIDELINES:
+- 1-2 pages: 2 sources
+- 3-4 pages: 3-4 sources
+- 5+ pages: 4-5 sources
 
-3. REQUIREMENTS:
-   - Minimum word count?
-   - Number of sources required?
-   - Citation style?
-   - Any specific instructions?
-
-4. STRUCTURE: How should the work be structured?
-
-5. KEY POINTS: What should be given special attention?
-
-6. INFORMATION SUFFICIENCY:
-   - Is ALL necessary information available to complete this?
-   - What's in the description vs. what's in the files?
-   - What's missing (if anything)?
-
-Start with "THINKING:" section where you show your reasoning process.
-If insufficient info, clearly state "INSUFFICIENT INFORMATION" in your analysis.
-Be detailed and thorough.
+Return ONLY the JSON object, nothing else.
