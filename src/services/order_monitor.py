@@ -1,106 +1,199 @@
+"""
+Order Monitor Service - Refactored with Clean Architecture
+Monitors orders and sends notifications
+"""
 import asyncio
 import logging
-from typing import Optional
-from py4writers import API, Order
-from py4writers.exceptions import NetworkError, AuthenticationError
+from typing import Dict, List, Set
+from aiogram import Bot
 
-from src.store import get_users
-from src.keyboards.order import get_order_keyboard
+from src.services.order_service import create_order_service
+from src.services.user_service import UserService
+from src.formatters.message_formatters import OrderFormatter
+from src.keyboards.order import get_order_keyboard, get_active_order_keyboard
+from src.services.auto_collector import auto_collect_orders
 
 logger = logging.getLogger(__name__)
 
-# Хранилище предыдущих заказов: {user_login: {order_id: title}}
-previous_orders = {}
+# State storage
+previous_orders: Dict[str, Set[str]] = {}  # {user_login: {order_ids}}
+previous_active_orders: Dict[str, Set[str]] = {}
+order_messages_cache: Dict[int, Dict[int, str]] = {}  # {chat_id: {order_index: message}}
 
 
-def format_new_order(order: Order) -> str:
-    """Форматирует сообщение о новом заказе"""
-    return (
-        "🔔 <b>Поступил новый заказ!</b> "
-        f"{order.order_type} ${order.total}\n\n"
-        "━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
-        f"🆔 <b>ID:</b> <code>{order.order_id}</code>\n"
-        f"📝 <b>Title:</b> <code>{order.title}</code>\n"
-        f"📚 <b>Subject:</b> <code>{order.subject}</code>\n"
-        f"⌛️ <b>Deadline:</b> <code>{order.remaining}</code>\n"
-        f"📄 <b>Type:</b> <code>{order.order_type}</code>\n"
-        f"🎓 <b>Level:</b> <code>{order.academic_level}</code>\n"
-        f"🖋 <b>Style:</b> <code>{order.style}</code>\n"
-        f"📄 <b>Pages:</b> <code>{order.pages}</code>\n"
-        f"🔎 <b>Sources:</b> <code>{order.sources}</code>\n"
-        f"💵 <b>Total:</b> $<code>{order.total}</code>\n"
-        "━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-    )
+class OrderMonitor:
+    """
+    Service for monitoring orders
+    Single Responsibility: Monitor and notify about order changes
+    """
 
+    def __init__(self, bot: Bot):
+        self.bot = bot
 
-def format_removed_order(order_id: str, title: Optional[str] = None) -> str:
-    """Форматирует сообщение об удалении заказа"""
-    if title:
-        return f"❌ Заказ <b>{title}</b> больше недоступен."
-    return f"❌ Заказ {order_id} больше недоступен."
+    async def monitor_user_orders(self, user: dict):
+        """
+        Monitor orders for a single user
 
+        Args:
+            user: User dict with login, password, id
+        """
+        user_login = user["login"]
+        chat_id = user["id"]
 
-async def process_user(bot, api: API, user: dict):
-    """Обрабатывает заказы пользователя"""
-    user_login = user["login"]
-    chat_id = user["id"]
+        try:
+            async with create_order_service(user["login"], user["password"]) as service:
+                # Auto-collect orders if enabled
+                user_service = UserService(chat_id)
+                settings = user_service.get_settings()
 
-    try:
-        await api.login()
+                if settings['auto_collect_enabled']:
+                    collected = await auto_collect_orders(
+                        service.api_service._api,
+                        chat_id
+                    )
 
-        current_orders = await api.get_orders()
+                    for order in collected:
+                        await self.send_order_notification(
+                            chat_id,
+                            order,
+                            "🤖 Auto-Collected Order!"
+                        )
 
-        if current_orders is None:
-            logger.error(f"❌ API вернул None для пользователя {user_login}")
-            return
+                # Get all orders
+                orders = await service.get_all_orders_by_type()
 
-        # Создаём словарь {order_id: title} для текущих заказов
-        current_order_dict = {
-            order.order_id: order.title for order in current_orders if order
-        }
-
-        # Получаем предыдущие заказы пользователя
-        old_order_dict = previous_orders.get(user_login, {})
-
-        # Определяем новые и пропавшие заказы
-        new_orders = set(current_order_dict.keys()) - set(old_order_dict.keys())
-        removed_orders = set(old_order_dict.keys()) - set(current_order_dict.keys())
-
-        # Отправляем уведомления о новых заказах
-        for order in current_orders:
-            if order and order.order_id in new_orders:
-                await bot.send_message(
-                    chat_id=chat_id,
-                    text=format_new_order(order),
-                    reply_markup=get_order_keyboard(order.order_id)
+                # Monitor available orders
+                await self.monitor_available_orders(
+                    user_login, chat_id, orders['available']
                 )
 
-        # Отправляем уведомления об удалённых заказах
-        for order_id in removed_orders:
-            title = old_order_dict.get(order_id, None)
-            await bot.send_message(
+                # Monitor active orders
+                await self.monitor_active_orders(
+                    user_login, chat_id, orders['processing']
+                )
+
+        except Exception as e:
+            logger.error(f"Error monitoring orders for {user_login}: {e}")
+
+    async def monitor_available_orders(
+        self,
+        user_login: str,
+        chat_id: int,
+        current_orders: List
+    ):
+        """Monitor changes in available orders"""
+        # Get current order IDs
+        current_ids = {order.order_id for order in current_orders if order}
+
+        # Get previous order IDs
+        previous_ids = previous_orders.get(user_login, set())
+
+        # Find new and removed orders
+        new_ids = current_ids - previous_ids
+        removed_ids = previous_ids - current_ids
+
+        # Send notifications for new orders
+        for order in current_orders:
+            if order and order.order_id in new_ids:
+                await self.send_order_notification(
+                    chat_id,
+                    order,
+                    "🔔 Новый заказ!"
+                )
+
+        # Send notifications for removed orders
+        for order_id in removed_ids:
+            await self.bot.send_message(
                 chat_id=chat_id,
-                text=format_removed_order(order_id, title)
+                text=f"❌ Заказ {order_id} больше недоступен"
             )
 
-        # Обновляем previous_orders
-        previous_orders[user_login] = current_order_dict
+        # Update state
+        previous_orders[user_login] = current_ids
 
-    except NetworkError as e:
-        logger.warning(f"⚠️  Сетевая ошибка для {user_login}: {e}. Пропускаем итерацию.")
-    except AuthenticationError as e:
-        logger.error(f"❌ Ошибка авторизации для {user_login}: {e}")
-    except Exception as e:
-        logger.error(f"❌ Неизвестная ошибка для {user_login}: {e}")
+    async def monitor_active_orders(
+        self,
+        user_login: str,
+        chat_id: int,
+        current_orders: List
+    ):
+        """Monitor changes in active/processing orders"""
+        # Get current order IDs
+        current_ids = {order.order_id for order in current_orders if order}
+
+        # Get previous order IDs
+        previous_ids = previous_active_orders.get(user_login, set())
+
+        # Find new active orders
+        new_ids = current_ids - previous_ids
+
+        # Send notifications for new active orders
+        for order in current_orders:
+            if order and order.order_id in new_ids:
+                await self.send_active_order_notification(
+                    chat_id,
+                    order
+                )
+
+        # Update state
+        previous_active_orders[user_login] = current_ids
+
+    async def send_order_notification(self, chat_id: int, order, prefix: str = "🔔"):
+        """Send notification about new order"""
+        formatter = OrderFormatter()
+        message_text = formatter.format_order_card(order, prefix=prefix)
+
+        # Cache message
+        if chat_id not in order_messages_cache:
+            order_messages_cache[chat_id] = {}
+        order_messages_cache[chat_id][order.order_index] = message_text
+
+        # Use order_index if available, fallback to order_id
+        order_key = order.order_index if order.order_index is not None else order.order_id
+
+        await self.bot.send_message(
+            chat_id=chat_id,
+            text=message_text,
+            reply_markup=get_order_keyboard(order_key)
+        )
+
+    async def send_active_order_notification(self, chat_id: int, order):
+        """Send notification about new active order"""
+        formatter = OrderFormatter()
+        message_text = formatter.format_order_card(order, prefix="🔄")
+
+        # Cache message
+        if chat_id not in order_messages_cache:
+            order_messages_cache[chat_id] = {}
+        order_messages_cache[chat_id][order.order_index] = message_text
+
+        await self.bot.send_message(
+            chat_id=chat_id,
+            text=message_text,
+            reply_markup=get_active_order_keyboard(order.order_index)
+        )
+
+    async def run(self):
+        """Main monitoring loop"""
+        logger.info("🔄 Order monitoring started")
+
+        while True:
+            user_service = UserService(0)  # Static method access
+            users = user_service.get_all_users()
+
+            for user in users:
+                await self.monitor_user_orders(user)
+                await asyncio.sleep(1)  # Small delay between users
+
+            await asyncio.sleep(5)  # Main loop delay
 
 
-async def start_monitoring(bot):
-    """Основная корутина мониторинга заказов"""
-    logger.info("🔄 Order monitoring started")
+async def start_monitoring(bot: Bot):
+    """
+    Start order monitoring
 
-    while True:
-        for user in get_users():
-            # Используем context manager для правильного управления ресурсами
-            async with API(login=user["login"], password=user["password"]) as api:
-                await process_user(bot, api, user)
-            await asyncio.sleep(5)
+    Args:
+        bot: Telegram bot instance
+    """
+    monitor = OrderMonitor(bot)
+    await monitor.run()

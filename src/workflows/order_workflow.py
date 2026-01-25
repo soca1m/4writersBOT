@@ -1,31 +1,48 @@
 """
 LangGraph workflow for order processing
-New architecture: 7 bots with clean transitions
+New architecture with AI detection and humanization
 
 Flow:
 Bot 1 (Requirements) → Bot 2 (Writer:initial) → Bot 3 (Citations) →
-Bot 4 (Word Count) ↔ Bot 2 (expand) →
-Bot 5 (Quality) ↔ Bot 2 (revise) + Bot 3 (if reinsert) →
-Bot 6 (AI Check, max 5) → Bot 7 (References) → END
+Bot 4 (Word Count) ↔ Bot 2 (expand/shorten) →
+Bot 5 (Quality Pre-AI) ↔ Bot 2 (revise) + Bot 3 (if reinsert) →
+Bot 6 (AI Check) →
+  ├─ If ≤5% AI → Check if post-humanization →
+  │   ├─ Yes → Bot 5b (Quality Post-Humanization) → Bot 7 (References)
+  │   └─ No → Bot 7 (References)
+  └─ If >5% AI → Humanizer →
+      ├─ If >70% AI → Full Rehumanize → Bot 6 (recheck)
+      └─ If 5-70% AI → Sentence Humanize → Bot 6 (recheck)
+
+After Bot 5b (Quality Post-Humanization):
+  ├─ If OK → Bot 7 (References) → END
+  └─ If Critical Errors → Bot 2 (fix_humanized) → Bot 6 (final check)
 """
 import logging
+from typing import Optional
 from langgraph.graph import StateGraph, END
 
 from src.workflows.state import OrderWorkflowState
+from src.checkpoint_manager import get_checkpointer
 from src.agents.requirements_analyzer import analyze_requirements_node
 from src.agents.writer import write_text_node
 from src.agents.citation_integrator import integrate_citations_node
 from src.agents.word_count_checker import check_word_count_node
 from src.agents.quality_checker import check_quality_node
+from src.agents.quality_checker_post_humanization import check_quality_post_humanization_node
 from src.agents.ai_detector import check_ai_detection_node
+from src.agents.humanizer import humanize_text_node
 from src.agents.references_generator import generate_references_node
 
 logger = logging.getLogger(__name__)
 
 
-def create_order_workflow():
+def create_order_workflow(checkpointer=None):
     """
     Creates LangGraph workflow for order processing
+
+    Args:
+        checkpointer: Optional checkpointer for state persistence
 
     Returns:
         Compiled graph
@@ -33,13 +50,15 @@ def create_order_workflow():
     workflow = StateGraph(OrderWorkflowState)
 
     # Add nodes (bots)
-    workflow.add_node("analyze_requirements", analyze_requirements_node)  # Bot 1
-    workflow.add_node("write", write_text_node)                           # Bot 2
-    workflow.add_node("integrate_citations", integrate_citations_node)    # Bot 3
-    workflow.add_node("check_word_count", check_word_count_node)          # Bot 4
-    workflow.add_node("check_quality", check_quality_node)                # Bot 5
-    workflow.add_node("check_ai", check_ai_detection_node)                # Bot 6
-    workflow.add_node("generate_references", generate_references_node)    # Bot 7
+    workflow.add_node("analyze_requirements", analyze_requirements_node)          # Bot 1
+    workflow.add_node("write", write_text_node)                                   # Bot 2
+    workflow.add_node("integrate_citations", integrate_citations_node)            # Bot 3
+    workflow.add_node("check_word_count", check_word_count_node)                  # Bot 4
+    workflow.add_node("check_quality", check_quality_node)                        # Bot 5 (Pre-AI)
+    workflow.add_node("check_quality_post_humanization", check_quality_post_humanization_node)  # Bot 5b (Post-Humanization)
+    workflow.add_node("check_ai", check_ai_detection_node)                        # Bot 6
+    workflow.add_node("humanize", humanize_text_node)                             # Humanizer
+    workflow.add_node("generate_references", generate_references_node)            # Bot 7
 
     # Set entry point
     workflow.set_entry_point("analyze_requirements")
@@ -65,20 +84,20 @@ def create_order_workflow():
         mode = state.get("writer_mode", "initial")
 
         if state["status"] == "text_written":
-            if mode == "initial":
-                # First write → go to citations
-                logger.info("Initial text written, adding citations")
-                return "integrate_citations"
-            elif mode == "expand":
-                # Expanded text → back to citations (they might need reinsertion)
-                logger.info("Text expanded, re-adding citations")
-                return "integrate_citations"
-            else:
-                logger.warning(f"Unknown write mode: {mode}")
-                return "integrate_citations"
+            # After initial, expand, or shorten mode
+            logger.info(f"Text written (mode: {mode}), adding citations")
+            return "integrate_citations"
 
         elif state["status"] == "text_revised":
-            # After revision from quality check
+            # Check if this was a post-humanization fix
+            post_humanization = state.get("post_humanization_check", False)
+
+            if mode == "fix_humanized" and post_humanization:
+                # After fixing humanized text, go back to AI check to verify
+                logger.info("Humanized text fixed, checking AI again")
+                return "check_ai"
+
+            # Regular revision from quality check
             citation_action = state.get("citation_action", "keep")
             if citation_action == "reinsert":
                 logger.info("Text revised, reinserting citations")
@@ -87,6 +106,21 @@ def create_order_workflow():
                 # Citations kept/adjusted, go back to quality check to verify fixes
                 logger.info("Text revised, re-checking quality")
                 return "check_quality"
+
+        elif state["status"] == "word_count_shortening":
+            # After shorten mode - check if we need to reinsert citations
+            citations_already_inserted = state.get("citations_inserted", False)
+            citation_action = state.get("citation_action", "keep")
+
+            if citations_already_inserted and citation_action != "reinsert":
+                # Citations already in text and we're just adjusting/keeping them
+                # Skip Bot 3 to avoid re-inserting in same places
+                logger.info("Text shortened, citations already in text, checking quality")
+                return "check_quality"
+            else:
+                # Need to insert citations for first time
+                logger.info("Text shortened, inserting citations")
+                return "integrate_citations"
 
         elif state["status"] == "failed":
             logger.error("Writing failed")
@@ -139,41 +173,99 @@ def create_order_workflow():
 
     # After Bot 6 (AI Detection)
     def after_ai_check(state: OrderWorkflowState) -> str:
-        if state["status"] == "ai_passed":
-            logger.info("AI check passed, generating references")
-            return "generate_references"
-        elif state["status"] == "ai_humanizing":
-            logger.info("AI detected, rechecking after humanization")
-            return "check_ai"  # Loop back to check again
+        status = state.get("status")
+        post_humanization = state.get("post_humanization_check", False)
+
+        if status == "ai_passed":
+            # AI check passed - determine next step
+            if post_humanization:
+                # This was after humanization - skip to references
+                logger.info("AI check passed after humanization, generating references")
+                return "generate_references"
+            else:
+                # First time passing - go to references directly
+                logger.info("AI check passed, generating references")
+                return "generate_references"
+
+        elif status == "ai_passed_post_humanization":
+            # AI passed and this was a post-humanization check
+            # Go to post-humanization quality check
+            logger.info("AI passed after humanization, checking post-humanization quality")
+            return "check_quality_post_humanization"
+
+        elif status == "ai_humanizing":
+            logger.info("AI detected, sending to humanizer")
+            return "humanize"  # Go to humanizer
+
         else:
-            logger.warning(f"AI check status: {state['status']}, generating references anyway")
+            logger.warning(f"AI check status: {status}, generating references anyway")
             return "generate_references"
 
     workflow.add_conditional_edges("check_ai", after_ai_check)
 
+    # After Humanizer → back to AI check
+    def after_humanize(state: OrderWorkflowState) -> str:
+        logger.info("Text humanized, rechecking with AI detector")
+        # Set flag that next AI check is post-humanization
+        return "check_ai"  # Always go back to AI check
+
+    workflow.add_conditional_edges("humanize", after_humanize)
+
+    # After Bot 5b (Post-Humanization Quality Check)
+    def after_quality_post_humanization(state: OrderWorkflowState) -> str:
+        if state.get("quality_ok"):
+            logger.info("Post-humanization quality OK, generating references")
+            return "generate_references"
+        elif state.get("status") == "quality_revising":
+            # Critical errors found - need manual fixes
+            logger.info("Post-humanization quality issues, fixing with style preservation")
+            return "write"  # Go to writer in fix_humanized mode
+        else:
+            logger.warning("Unknown post-humanization quality status, proceeding to references")
+            return "generate_references"
+
+    workflow.add_conditional_edges("check_quality_post_humanization", after_quality_post_humanization)
+
     # After Bot 7 (References) → END
     workflow.add_edge("generate_references", END)
 
-    # Compile
-    app = workflow.compile()
-    logger.info("✅ Order workflow compiled successfully")
+    # Compile with optional checkpointer
+    if checkpointer:
+        app = workflow.compile(checkpointer=checkpointer)
+        logger.info("✅ Order workflow compiled successfully with checkpointing")
+    else:
+        app = workflow.compile()
+        logger.info("✅ Order workflow compiled successfully")
 
     return app
 
 
-async def process_order(order_data: dict) -> OrderWorkflowState:
+async def process_order(order_data: dict, resume: bool = False, chat_id: Optional[int] = None) -> OrderWorkflowState:
     """
-    Process order through workflow
+    Process order through workflow with checkpointing support
 
     Args:
         order_data: Order data dict
+        resume: If True, try to resume from last checkpoint
+        chat_id: Optional Telegram chat ID for database logging
 
     Returns:
         Final state
     """
-    logger.info(f"🚀 Starting workflow for order {order_data.get('order_id', 'unknown')}")
+    from src.db.database import create_workflow, update_workflow_status, add_workflow_stage
 
-    app = create_order_workflow()
+    order_id = order_data.get('order_id', 'unknown')
+    logger.info(f"🚀 Starting workflow for order {order_id} (resume={resume})")
+
+    # Create workflow record in database
+    workflow_id = None
+    if chat_id:
+        workflow_id = create_workflow(
+            chat_id=chat_id,
+            order_id=order_id,
+            order_index=order_data.get('order_index')
+        )
+        logger.info(f"Created workflow record #{workflow_id} in database")
 
     # Calculate target word count
     pages = order_data.get('pages', 1)
@@ -220,6 +312,9 @@ async def process_order(order_data: dict) -> OrderWorkflowState:
         ai_sentences=[],
         ai_check_attempts=0,
         ai_check_passed=False,
+        humanization_mode="none",
+        humanized_document_id=None,
+        post_humanization_check=False,
 
         # Bot 7
         references="",
@@ -231,17 +326,83 @@ async def process_order(order_data: dict) -> OrderWorkflowState:
         error=None
     )
 
-    try:
-        final_state = await app.ainvoke(initial_state)
+    # Get global checkpointer
+    checkpointer = get_checkpointer()
 
-        logger.info(f"✅ Workflow completed for order {order_data.get('order_id')}")
+    app = create_order_workflow(checkpointer=checkpointer)
+
+    # Use order_id as thread_id for checkpointing
+    config = {
+        "configurable": {"thread_id": str(order_id)},
+        "recursion_limit": 200  # Increased to allow more quality iterations
+    }
+
+    try:
+        # Update status to running
+        if workflow_id:
+            update_workflow_status(workflow_id, "running")
+
+        if resume:
+            # Try to resume from checkpoint
+            logger.info(f"Attempting to resume from checkpoint for order {order_id}")
+            # Get the current state from checkpoint
+            state = await app.aget_state(config)
+            if state.values:
+                logger.info(f"Found checkpoint, resuming from: {state.next}")
+                # Continue from last checkpoint
+                final_state = await app.ainvoke(None, config=config)
+            else:
+                logger.info("No checkpoint found, starting fresh")
+                final_state = await app.ainvoke(initial_state, config=config)
+        else:
+            # Start fresh
+            final_state = await app.ainvoke(initial_state, config=config)
+
+        logger.info(f"✅ Workflow completed for order {order_id}")
         logger.info(f"Final status: {final_state['status']}")
+
+        # Update workflow in database
+        if workflow_id:
+            update_workflow_status(
+                workflow_id,
+                "completed",
+                final_text=final_state.get('final_text', ''),
+                word_count=final_state.get('word_count', 0),
+                ai_score=final_state.get('ai_score', 0.0)
+            )
+
+            # Log final stage
+            add_workflow_stage(
+                workflow_id=workflow_id,
+                stage_name="completed",
+                status="completed",
+                output_data={
+                    "word_count": final_state.get('word_count', 0),
+                    "ai_score": final_state.get('ai_score', 0.0),
+                    "final_status": final_state.get('status')
+                },
+                agent_logs=final_state.get('agent_logs', [])
+            )
 
         return final_state
 
     except Exception as e:
         logger.error(f"❌ Workflow failed: {e}")
         logger.exception(e)
+        logger.info(f"💾 State saved at checkpoint - can resume with resume=True")
+
+        # Update workflow status to failed
+        if workflow_id:
+            update_workflow_status(workflow_id, "failed", error=str(e))
+
+            # Log failed stage
+            add_workflow_stage(
+                workflow_id=workflow_id,
+                stage_name="failed",
+                status="failed",
+                error=str(e)
+            )
+
         return {
             **initial_state,
             "status": "failed",

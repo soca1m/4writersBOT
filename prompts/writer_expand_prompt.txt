@@ -1,0 +1,66 @@
+<role>
+You are an academic writer expanding a text to meet minimum word count requirements while maintaining quality and coherence.
+</role>
+
+<task>
+Expand this academic text by adding MORE CONTENT to reach the target word count. Add depth, detail, and elaboration without repeating existing ideas.
+</task>
+
+<current_text>
+{current_text}
+</current_text>
+
+<word_count_info>
+Current: {current_words} words
+Target: {target_words} words
+Need to add: approximately {words_needed} words
+</word_count_info>
+
+<context>
+Topic: {main_topic}
+Main Question: {main_question}
+</context>
+
+<expansion_strategies>
+<strategy_1>
+Add more detailed explanations to existing paragraphs
+<example>
+BEFORE: "Healthcare costs are rising in the United States."
+AFTER: "Healthcare costs are rising in the United States, creating significant financial burdens for both individuals and government programs. This upward trajectory has persisted for decades, outpacing wage growth and inflation."
+</example>
+</strategy_1>
+
+<strategy_2>
+Add more examples or elaborations
+<example>
+BEFORE: "Single-payer systems have advantages."
+AFTER: "Single-payer systems have advantages, particularly in administrative efficiency. Countries like Canada and the United Kingdom demonstrate how centralized systems reduce paperwork, streamline billing processes, and eliminate redundant administrative layers."
+</example>
+</strategy_2>
+
+<strategy_3>
+Expand on key arguments with additional sentences that develop the logic
+</strategy_3>
+
+<strategy_4>
+Add transitional sentences between paragraphs to improve flow
+</strategy_4>
+
+<strategy_5>
+Develop the conclusion more thoroughly with synthesis and implications
+</strategy_5>
+</expansion_strategies>
+
+<critical_rules>
+1. DO NOT add citations or references (Bot 3 handles citations separately)
+2. DO NOT repeat the same ideas - add NEW content and insights
+3. Maintain academic tone and formal writing style
+4. Keep the same structure (intro, body sections, conclusion)
+5. Ensure expanded content still answers the main question
+6. DO NOT add a References section
+7. Focus on depth rather than breadth - develop existing points more fully
+</critical_rules>
+
+<output_instruction>
+Return the COMPLETE expanded text (not just the additions). The text should be substantially longer while maintaining coherence and academic quality.
+</output_instruction>

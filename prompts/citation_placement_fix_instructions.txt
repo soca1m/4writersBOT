@@ -1,0 +1,172 @@
+<citation_placement_fix>
+<critical_rule>
+First and last sentences of body paragraphs MUST NOT contain citations.
+</critical_rule>
+
+<reasoning>
+<first_sentence>
+The opening sentence (topic sentence) introduces the paragraph's main idea in YOUR OWN WORDS.
+It sets up what the paragraph will discuss.
+</first_sentence>
+
+<middle_sentences>
+Citations belong in the MIDDLE sentences where you present evidence and support.
+</middle_sentences>
+
+<last_sentence>
+The closing sentence (concluding sentence) summarizes/concludes the paragraph in YOUR OWN WORDS.
+It reinforces the paragraph's contribution to your argument.
+</last_sentence>
+</reasoning>
+
+<step_by_step_process>
+<step_1>
+Identify which paragraphs have citations in their first OR last sentence.
+</step_1>
+
+<step_2>
+For EACH problematic paragraph:
+
+<if_citation_in_first_sentence>
+CRITICAL STRATEGY - SIMPLE 2-STEP PROCESS:
+=====================================
+DO NOT try to move citations around!
+DO NOT rewrite existing sentences!
+
+STEP 1: Add ONE new topic sentence BEFORE the sentence with citation
+STEP 2: Leave the rest of paragraph EXACTLY AS IS
+
+CORRECT APPROACH:
+-----------------
+BEFORE (WRONG):
+"Research shows (Smith, 2020) that outcomes improve under new systems."
+
+DO THIS (SIMPLE FIX):
+"New healthcare systems demonstrate improved outcomes. Research shows (Smith, 2020) that these improvements persist over time."
+
+^ Added topic sentence at start, kept original sentence as sentence 2
+
+RULES FOR TOPIC SENTENCES (WHAT MAKES A GOOD ONE):
+--------------------------------------------------
+A topic sentence INTRODUCES the main idea of the paragraph.
+It tells the reader what this paragraph will discuss.
+
+✅ GOOD TOPIC SENTENCES (introduce and present the paragraph's focus):
+- "A common aspect of IPV committed by the two genders lies in the nature of violence and abuse that victims face, including physical, sexual, and mental harm."
+  ^ Introduces what the paragraph discusses: commonalities in IPV nature
+
+- "Single-payer systems offer significant cost advantages through consolidated administration."
+  ^ Introduces the topic: cost benefits of single-payer
+
+- "Implementation barriers complicate universal healthcare reform in the United States."
+  ^ Introduces the focus: barriers to reform
+
+❌ BAD TOPIC SENTENCES (too vague or don't introduce):
+- "Studies show problems exist." → Too vague, doesn't say what the paragraph is about
+- "Research indicates needs." → Doesn't introduce the paragraph's focus
+
+IMPORTANT RULES:
+1. Each paragraph has ONLY ONE topic sentence (always the first)
+2. If paragraph already starts with a good topic sentence, DON'T add another
+3. Topic sentence = 12-25 words (substantial, introduces the point)
+4. Must be YOUR words (never starts with citation)
+</if_citation_in_first_sentence>
+
+<if_citation_in_last_sentence>
+CRITICAL STRATEGY - SIMPLE 2-STEP PROCESS:
+=====================================
+DO NOT try to move citations around within the same sentence!
+DO NOT rewrite existing sentences!
+
+STEP 1: Leave the sentence with the citation EXACTLY AS IS
+STEP 2: Add ONE new concluding sentence AFTER it (no citation)
+
+CORRECT APPROACH:
+-----------------
+BEFORE (WRONG):
+"Policymakers must consider implementation strategies (Namyalo et al., 2025)."
+
+DO THIS (SIMPLE FIX):
+"Policymakers must consider implementation strategies (Namyalo et al., 2025). These approaches offer pathways to reform."
+
+DON'T DO THIS (TOO COMPLEX):
+"Policymakers must consider implementation strategies (Namyalo et al., 2025), such as expanding programs gradually."
+^ This still ends with citation!
+
+RULES FOR CONCLUDING SENTENCES (WHAT MAKES A GOOD ONE):
+-------------------------------------------------------
+A concluding sentence SUMMARIZES or REFLECTS on the paragraph's main point.
+It reinforces what the paragraph established in YOUR OWN WORDS.
+
+✅ GOOD CONCLUDING SENTENCES (summarize and reflect):
+- "Moreover, the occurrence of IPV suggests a propensity for its recurrence and possible escalation in severity over time, irrespective of the perpetrator's or the victim's gender."
+  ^ Summarizes the pattern and draws a conclusion about IPV recurrence
+
+- "The reasons behind the violence often differ: men typically use violence to establish dominance and control, while women may use violence to protect themselves or in response to continuous abuse."
+  ^ Concludes by contrasting motivations, wrapping up the paragraph's analysis
+
+- "These structural barriers demonstrate the complexity of implementing universal healthcare in the American political context."
+  ^ Reflects on what the evidence showed about barriers
+
+❌ BAD CONCLUDING SENTENCES (too simple or don't conclude):
+- "This is important." → Too vague, doesn't summarize anything
+- "More research is needed." → Generic filler, doesn't wrap up the paragraph
+
+IMPORTANT RULES:
+1. Each paragraph has ONLY ONE concluding sentence (always the last)
+2. If paragraph already ends with a good conclusion, DON'T add another
+3. Concluding sentence = 8-20 words (concise but meaningful)
+4. Must be YOUR words (never contains citations)
+5. Should feel like a natural ending to the paragraph
+
+COMMON PATTERNS THAT WORK:
+- Summarize implications: "These patterns suggest [broader meaning]."
+- State significance: "This [topic] demonstrates [importance]."
+- Draw conclusions: "The reasons behind [X] often differ in [way]."
+- Reflect on evidence: "Such findings reveal [insight]."
+</if_citation_in_last_sentence>
+</step_2>
+
+<step_3>
+Verify: After your edits, EVERY body paragraph must have:
+- First sentence = YOUR words (no citation)
+- Middle sentences = Evidence with citations
+- Last sentence = YOUR words (no citation)
+</step_3>
+</step_by_step_process>
+
+<constraints>
+STRICT RULES - FOLLOW EXACTLY:
+===============================
+1. DO NOT move citations within sentences
+2. DO NOT rewrite existing sentences
+3. ONLY ADD new sentences (topic or concluding)
+4. Each fix = ADD EXACTLY ONE sentence per paragraph
+5. Each paragraph has ONLY ONE topic sentence (first) and ONLY ONE concluding sentence (last)
+6. Use simple, clear language
+7. Keep additions minimal and natural
+
+CRITICAL: CHECK BEFORE ADDING
+------------------------------
+Before adding a topic sentence:
+→ Does the paragraph already start with a good topic sentence?
+→ If YES: Don't add another! Leave it as is.
+→ If NO: Add ONE topic sentence before the citation
+
+Before adding a concluding sentence:
+→ Does the paragraph already end with a good conclusion (no citation)?
+→ If YES: Don't add another! Leave it as is.
+→ If NO: Add ONE concluding sentence after the citation
+
+WRONG FIXES TO AVOID:
+- Moving citation: "Studies (Smith, 2020) show..." → Still breaks rule if it's the last sentence!
+- Rewriting: Changing the sentence content or structure
+- Adding TWO sentences: Never add both topic AND concluding to same paragraph
+- Adding when not needed: If paragraph structure is already good, don't change it
+
+RIGHT FIXES:
+- Citation at end? → Add ONE short concluding sentence after it (8-20 words)
+- Citation at start? → Add ONE topic sentence before it (12-25 words)
+- Keep ALL original sentences unchanged
+</constraints>
+</citation_placement_fix>

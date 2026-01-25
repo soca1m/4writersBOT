@@ -1,36 +1,32 @@
-Order #0174934347 
-Subject	Criminology
-Topic	no title
+Order #5002228813 
+Subject	Nursing
+Topic	Writer's choice
 Type	Essay
-Level	University
+Level	College
 Style	APA
-Sources	1
+Sources	2
 Tables	0
 Charts	0
 Diagrams	0
 Language	English(U.S.)
-Description	
-I have attached the following documents to complete this assignment. Please use textbook in-text citations with the textbook information that's attached. You can use other reference, but also use the textbook information that's attached.
 Spacing	Double
-Pages	2
-Added	2024-03-05 16:26
-Delivery	2024-03-16 21:14
-Salary	$ 9.00
+Pages	1
+Added	2024-02-08 02:48
+Delivery	2024-02-16 02:48
+Salary	$ 5.00
 Additional services	$ 0.00
 Bonus / penalty	$ 0.00
 Status	Sent
-Preferred writer bonus	$ 4.50 (customer has chosen you to write this order)
 Customer's mark	still n/a
 Paper requirements	100
-Formatting	98
-Grammar	91
+Formatting	97
+Grammar	93
 Word count	100
 Plagiarism	0%
-Overall mark	96.2
-Editor's payment for work, who is correcting your mistakes: 0.51$
+Overall mark	96.9
 
-(please see files _remark_edited to see editor's work and your mistakes)
-
-Please read IMPORTANT reasons to write better
-
-Total	$ 12.99
+Description:
+Respond to the following:
+•	Discuss 1 advantage and 1 disadvantage of single-payer medicine.
+•	What barriers exist to having universal health care in the United States?
+•	How might these barriers be overcome?

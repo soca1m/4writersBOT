@@ -39,10 +39,11 @@ class OrderWorkflowState(TypedDict):
     parsed_files_content: str  # Содержимое всех прикрепленных файлов
 
     # ===== Bot 2: Writer =====
-    # Режимы: "initial", "expand", "revise"
-    writer_mode: Literal["initial", "expand", "revise"]
+    # Режимы: "initial", "expand", "revise", "fix_humanized"
+    writer_mode: Literal["initial", "expand", "revise", "fix_humanized"]
     draft_text: str  # Текст БЕЗ цитат (raw text)
     text_with_citations: str  # Текст С цитатами (после Bot 3)
+    text_before_humanization: str  # Текст ДО humanization (для reference при fix_humanized)
 
     # ===== Bot 3: Citation Integrator =====
     sources_found: List[Dict[str, any]]  # Список найденных источников
@@ -59,7 +60,10 @@ class OrderWorkflowState(TypedDict):
     quality_ok: bool
     quality_issues: List[str]  # Найденные проблемы
     quality_suggestions: List[str]  # Рекомендации
-    citation_action: Literal["keep", "adjust", "reinsert"]  # Что делать с цитатами после ревизии
+    citation_action: Literal["keep", "adjust", "reinsert"]  # Что делать с цитатами
+    # "keep" - цитаты корректны, не менять
+    # "adjust" - цитаты в неправильных позициях (начало/конец параграфа), переставить
+    # "reinsert" - источники нерелевантны, найти новые
     quality_check_attempts: int  # Попытки исправления (max 10)
 
     # ===== Bot 6: AI Detector + Humanizer =====
@@ -67,6 +71,12 @@ class OrderWorkflowState(TypedDict):
     ai_sentences: List[str]  # Предложения с высоким AI score
     ai_check_attempts: int  # Попытки humanize (max 5)
     ai_check_passed: bool
+    humanization_mode: Literal["none", "full", "sentence"]  # Режим humanization
+    # "none" - не требуется
+    # "full" - полная перефразировка (AI > 70%)
+    # "sentence" - выборочная по предложениям (5% < AI ≤ 70%)
+    humanized_document_id: Optional[str]  # ID документа после humanization
+    post_humanization_check: bool  # Прошла ли проверка качества после humanization
 
     # ===== Bot 7: References Generator =====
     references: str  # APA References section

@@ -18,36 +18,52 @@ env_path = Path(__file__).parent / '.env'
 load_dotenv(env_path)
 
 from src.workflows.order_workflow import process_order
+from src.checkpoint_manager import init_checkpointer, close_checkpointer
 
 
 async def test_full_workflow():
     """Test the complete workflow on a sample order"""
+
+    # Initialize checkpointer
+    await init_checkpointer()
 
     print("=" * 80)
     print("FULL ORDER WORKFLOW TEST - NEW 7 BOT ARCHITECTURE")
     print("=" * 80)
     print()
 
-    # Test order data
+    # Read full order content from test/order.txt
+    # Bot 1 will analyze it and extract all requirements
+    order_file = Path(__file__).parent / 'test' / 'order.txt'
+    if order_file.exists():
+        order_description = order_file.read_text(encoding='utf-8')
+    else:
+        order_description = 'No order file found. Please create test/order.txt with order details.'
+
+    # Test order data - pass full order text for AI to analyze
     order_data = {
         'order_id': 'TEST-001',
         'order_index': '123',
-        'description': 'Write a short answer about gender symmetry in domestic violence research and how restorative justice approaches can address this issue.',
-        'pages': 2,
+        'description': order_description,  # Full order text, not extracted
+        'pages': 1,  # Default, will be extracted by Bot 1 from order text
         'deadline': '2024-01-25 10:00',
         'files': []
     }
 
     print(f"📋 Order ID: {order_data['order_id']}")
     print(f"📄 Description: {order_data['description'][:80]}...")
-    print(f"📃 Pages: {order_data['pages']} ({order_data['pages'] * 300} words minimum)")
     print(f"📎 Files: {len(order_data['files'])}")
+    print(f"📝 Note: Page count will be extracted by Bot 1 from order text")
     print()
     print("-" * 80)
     print()
 
-    # Process order through workflow
-    final_state = await process_order(order_data)
+    try:
+        # Process order through workflow
+        final_state = await process_order(order_data)
+    finally:
+        # Close checkpointer
+        await close_checkpointer()
 
     print()
     print("=" * 80)
@@ -68,6 +84,7 @@ async def test_full_workflow():
     if final_state.get('requirements'):
         req = final_state['requirements']
         print("Requirements Extracted:")
+        print(f"  - Pages Detected: {req.get('pages', 'N/A')}")
         print(f"  - Type: {req.get('assignment_type', 'N/A')}")
         print(f"  - Topic: {req.get('main_topic', 'N/A')}")
         print(f"  - Main Question: {req.get('main_question', 'N/A')[:60]}...")

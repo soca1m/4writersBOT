@@ -1,7 +1,6 @@
 # Хранилище пользователей
 users = [
-    {"login": "socalm", "password": "milavalerasocalm", "id": 538700366},
-    {"login": "jerrynetwork", "password": "Blazikenforever2003", "id": 581757147},
+    {"login": "socalm", "password": "milavalerasocalm", "id": 538700366}
 ]
 
 

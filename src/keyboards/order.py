@@ -46,3 +46,18 @@ def get_back_keyboard(order_id: int) -> InlineKeyboardMarkup:
     )
 
     return builder.as_markup()
+
+
+def get_active_order_keyboard(order_index: int) -> InlineKeyboardMarkup:
+    """Клавиатура для активных заказов (в работе) с кнопкой AI обработки"""
+    builder = InlineKeyboardBuilder()
+
+    builder.row(
+        InlineKeyboardButton(text="📂 Files", callback_data=f"order_files:{order_index}"),
+        InlineKeyboardButton(text="📝 View", callback_data=f"order_view:{order_index}")
+    )
+    builder.row(
+        InlineKeyboardButton(text="🤖 Process with AI", callback_data=f"order_process:{order_index}")
+    )
+
+    return builder.as_markup()

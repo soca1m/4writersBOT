@@ -97,11 +97,14 @@ class AcademicSearchService:
         params = {
             "query": query,
             "limit": min(limit, 100),
-            "fields": "title,authors,year,abstract,citationCount,url"
+            "fields": "title,authors,year,abstract,citationCount,url,publicationTypes"
         }
 
         if year_min:
             params["year"] = f"{year_min}-"
+
+        # Exclude clinical guidelines and review articles for better relevance
+        # Note: Semantic Scholar doesn't support negative filters well, so we filter in code
 
         client = await self._get_client()
 
@@ -123,7 +126,7 @@ class AcademicSearchService:
 
                 papers = []
                 for item in data.get("data", []):
-                    title = item.get("title")
+                    title = item.get("title", "")
                     year = item.get("year")
 
                     if not title or not year:

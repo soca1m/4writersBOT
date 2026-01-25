@@ -13,7 +13,7 @@ from src.utils.llm_service import get_fast_model
 
 logger = logging.getLogger(__name__)
 
-MAX_QUALITY_ATTEMPTS = 10
+MAX_QUALITY_ATTEMPTS = 50  # Increased to allow more iterations
 
 
 def parse_json_response(text: str) -> Dict[str, Any]:
@@ -34,7 +34,7 @@ def parse_json_response(text: str) -> Dict[str, Any]:
     return {}
 
 
-QUALITY_CHECK_PROMPT = """You are an academic writing quality checker. Check this text against ALL rules below.
+QUALITY_CHECK_PROMPT = """You are an academic writing quality checker. Check this text for CRITICAL errors only.
 
 === TEXT TO CHECK ===
 {text}
@@ -47,80 +47,149 @@ QUALITY_CHECK_PROMPT = """You are an academic writing quality checker. Check thi
 === SOURCES USED ===
 {sources_info}
 
-=== RULES TO CHECK ===
+=== CRITICAL ERRORS TO CHECK (MUST FIX) ===
 
-**1. INTRODUCTION (check carefully):**
-- Does NOT use "This essay will...", "This paper examines...", "In this paper..." or similar announcements
-- Has a thesis statement at the END
-- Thesis follows ISO rule: Idea + Support + Order (shows what will be argued and structure)
-- Is proportional to paper length (~10%)
+**1. ANNOUNCEMENT PHRASES IN THESIS:**
+FAIL if thesis contains these exact patterns:
+- "This essay will..."
+- "This paper examines..."
+- "This paper discusses..."
+- "In this paper..."
+- "This essay examines..."
 
-**2. THESIS STATEMENT (CRITICAL):**
-BAD examples (FAIL if found):
-- "This essay examines how..."
-- "This paper will discuss..."
-- "This essay discusses..."
-- "In this paper, it will be analyzed..."
+GOOD thesis example (declarative):
+- "Gender symmetry in domestic violence reveals important patterns in perpetration rates, challenging traditional frameworks."
 
-GOOD example:
-- "Gender symmetry in domestic violence, while controversial, reveals patterns in perpetration rates, challenging traditional frameworks and requiring new justice approaches."
+**2. PARAGRAPH CITATION PLACEMENT (check ONLY body paragraphs, NOT introduction or conclusion):**
 
-**3. BODY PARAGRAPHS (check each one):**
-- Each starts with a TOPIC SENTENCE (author's own words, introduces the paragraph idea)
-- Each ends with a CONCLUDING SENTENCE (author's own words, NO citation at the end)
-- Citations are in the MIDDLE ONLY, never at the very start or very end of paragraph
-- Each paragraph discusses ONE idea only
-- At least 5-6 sentences per paragraph
+<critical_rule>
+FAIL if EITHER:
+- The FIRST sentence of any body paragraph contains a citation (Author, Year), OR
+- The LAST sentence of any body paragraph contains a citation (Author, Year)
 
-**4. PARAGRAPH BEGINNINGS (CRITICAL - check FIRST sentence of each body paragraph):**
-The FIRST sentence must be YOUR topic sentence WITHOUT any citation (Author, Year).
-WRONG: "Gender symmetry challenges traditional views (Aldridge, 2020)." - starts with citation
-RIGHT: "Gender symmetry in domestic violence challenges traditional views of perpetration."
+FIRST sentence = Topic sentence (YOUR words only)
+LAST sentence = Concluding sentence (YOUR words only)
+Citations belong in MIDDLE sentences only
+</critical_rule>
 
-**5. PARAGRAPH ENDINGS (CRITICAL - check LAST sentence of each body paragraph):**
-The LAST sentence must be YOUR concluding thought WITHOUT any citation (Author, Year).
-WRONG: "...leading to better outcomes (Smith, 2020)." - ends with citation
-RIGHT: "...leading to better outcomes (Smith, 2020). These results demonstrate the importance of early intervention."
+<how_to_check>
+1. Identify all body paragraphs (skip Introduction and Conclusion sections)
+2. For EACH body paragraph:
+   a. Check the FIRST sentence - if it contains "(Author, Year)" → FAIL
+   b. Check the LAST sentence - if it contains "(Author, Year)" → FAIL
+3. Citations should ONLY appear in middle sentences
+</how_to_check>
 
-**6. CONCLUSION:**
-- NO new information
-- NO citations
-- Summarizes the main points
-- Restates thesis in different words
+<examples>
+❌ WRONG (FAIL - citation in FIRST sentence):
+"Research shows (Smith, 2020) that outcomes improve. Additional analysis confirms this. These findings matter."
+→ First sentence has citation! FAIL
 
-**7. PROHIBITED WORDS (MUST NOT appear anywhere):**
-delve, realm, harness, unlock, tapestry, paradigm, cutting-edge, revolutionize, landscape, potential, findings, intricate, showcasing, crucial, pivotal, surpass, meticulously, vibrant, unparalleled, underscore, leverage, synergy, innovative, game-changer, testament, commendable, meticulous, highlight, emphasize, boast, groundbreaking, align, foster, showcase, enhance, holistic, garner, accentuate, pioneering, trailblazing, unleash, versatile, transformative, redefine, seamless, optimize, scalable, robust, breakthrough, empower, streamline, comprehensive, nuanced, multifaceted, fosters
+❌ WRONG (FAIL - citation in LAST sentence):
+"Healthcare systems face challenges. Research shows improvements (Smith, 2020). Wait times remain a concern. Studies confirm this pattern (Jones, 2021)."
+→ Last sentence: "Studies confirm this pattern (Jones, 2021)." ← Contains citation! FAIL
 
-**8. ACADEMIC STYLE:**
-- NO contractions (don't, isn't, won't - must use do not, is not, will not)
-- NO first/second person (I, we, you, my, our, your) unless reflection paper
-- NO rhetorical questions
-- NO conjunctions at sentence start (And, But, Or)
+✅ CORRECT (PASS - citations in MIDDLE only):
+"Healthcare systems face multiple challenges. Research (Smith, 2020) shows significant improvements in outcomes. Studies (Jones, 2021) confirm this pattern persists. These findings highlight the need for continued reform."
+→ First sentence: NO citation ✓
+→ Middle sentences: Have citations ✓
+→ Last sentence: NO citation ✓
+→ PASS!
 
-**9. CONTENT:**
-- Answers the main question
-- Relevant to the topic
-- Citations support claims properly
+❌ WRONG (FAIL - citation at end):
+"Single-payer systems reduce costs. Evidence demonstrates efficiency (Author, 2020)."
+→ Last sentence ends with citation! FAIL
+
+✅ CORRECT (PASS):
+"Single-payer systems demonstrate cost reduction potential. Evidence (Author, 2020) confirms efficiency improvements. These benefits warrant further consideration."
+→ First sentence: NO citation ✓
+→ Last sentence: NO citation ✓
+→ PASS!
+</examples>
+
+<error_format>
+If you find a violation, report it in ONE of these formats:
+
+For FIRST sentence violation:
+{{"rule": "PARAGRAPH CITATION PLACEMENT", "problem": "First sentence of body paragraph contains citation: '[exact first sentence]'", "location": "[which section/paragraph]"}}
+
+For LAST sentence violation:
+{{"rule": "PARAGRAPH CITATION PLACEMENT", "problem": "Last sentence of body paragraph ends with citation: '[exact last sentence]'", "location": "[which section/paragraph]"}}
+</error_format>
+
+IMPORTANT: Check BOTH first AND last sentences of every body paragraph.
+
+**3. TEXT COMPLETENESS:**
+FAIL if text appears cut off or incomplete (ends mid-sentence or mid-word)
+
+**4. PROHIBITED WORDS (check for these only):**
+delve, realm, harness, unlock, tapestry, paradigm, leverage, synergy, showcase, enhance, holistic, garner, accentuate, pioneering, trailblazing, unleash, transformative, redefine, seamless, optimize, scalable, robust, empower, streamline
+
+Other words like "findings," "crucial," "potential," "innovative" are ACCEPTABLE if used moderately.
+
+**5. CONTRACTIONS:**
+FAIL if contains: don't, isn't, won't, can't, shouldn't, wouldn't (must use: do not, is not, will not, cannot, should not, would not)
+
+**6. FIRST/SECOND PERSON:**
+FAIL if contains: I, We, You, My, Our, Your (unless assignment type is "reflection" or explicitly allows it)
+
+**7. PHRASAL VERBS:**
+FAIL if uses phrasal verbs instead of formal verbs:
+WRONG: "look at," "look into," "get rid of," "carry on," "put off," "hand out," "set up," "find out," "put up with," "think about," "come up with," "bring up," "take over," "figure out"
+RIGHT: "examine," "investigate," "eliminate," "continue," "postpone," "distribute," "establish," "discover," "tolerate," "consider," "develop," "mention," "assume," "determine"
+
+=== QUALITY ISSUES TO NOTE (but don't fail paper) ===
+- Thesis could be stronger (mention if ISO structure unclear)
+- Introduction length not ideal
+- Paragraphs could be more balanced
+- Citations could be distributed better
+- Overly long sentences (40+ words) - should break into shorter sentences
+- Section headings too long (should be 2-4 words)
+- Section headings not parallel in structure
+- Paper title too long or has unnecessary punctuation (colons, commas)
+- Repetitive sentence openings: Multiple consecutive sentences start with the same word/phrase (e.g., "Single-payer systems... Single-payer systems... Single-payer systems..." or "The implementation... The implementation...")
+
+=== DO NOT CHECK FOR (these are handled by other agents) ===
+- Reference list presence - Bot 7 (References Generator) adds this automatically at the end
+- Number of sources - Bot 3 (Citation Integrator) handles source count
+- In-text citation format - as long as citations exist in (Author, Year) format, they're fine
 
 === RETURN FORMAT ===
 Return ONLY valid JSON:
 {{
   "all_rules_passed": true or false,
   "issues": [
-    {{"rule": "rule name", "problem": "specific problem found", "location": "where in text"}},
+    {{"rule": "RULE NAME", "problem": "specific problem", "location": "where"}},
     ...
   ],
   "suggestions": ["suggestion 1", "suggestion 2"],
   "citation_action": "keep" or "adjust" or "reinsert"
 }}
 
+EVALUATION APPROACH:
+- Set "all_rules_passed": true if NO CRITICAL ERRORS found
+- Set "all_rules_passed": false ONLY if CRITICAL ERRORS exist
+- List ONLY ACTUAL ERRORS in "issues" array - DO NOT list rules that passed
+- List minor suggestions in "suggestions" array (these don't fail the paper)
+
+CITATION_ACTION DECISION:
+Analyze the types of issues found and decide:
+- "keep": No citation issues OR only minor style issues → keep existing citations unchanged
+- "adjust": Only CITATION PLACEMENT issues (citations in wrong positions) → move citations to better locations without changing sources
+- "reinsert": SOURCE CREDIBILITY/RELEVANCE issues (sources are inappropriate/irrelevant) → need to find completely new sources
+
 IMPORTANT:
-- Be STRICT. If ANY rule is violated, set "all_rules_passed": false
-- List EVERY issue found, be specific about location
-- Check EVERY paragraph FIRST sentence - must NOT have citation
-- Check EVERY paragraph LAST sentence - must NOT have citation
-- Check for ALL prohibited words
-- Check thesis does NOT announce intentions ("This essay will...")
+- If a rule is followed correctly, DO NOT mention it at all. Only report violations.
+- Choose citation_action based on whether the SOURCES themselves are problematic (reinsert) or just their PLACEMENT (adjust)
+
+Examples:
+❌ WRONG: {{"rule": "CONTRACTIONS", "problem": "No contractions found - this rule is PASSED"}}
+✅ CORRECT: (Don't mention it at all if no contractions found)
+
+❌ WRONG: {{"rule": "FIRST PERSON", "problem": "No first/second person pronouns found - this rule is PASSED"}}
+✅ CORRECT: (Don't mention it at all if rule is followed)
+
+Be reasonable. Papers don't need to be perfect, just free of critical errors.
 
 Return ONLY the JSON object, no other text."""
 
@@ -157,6 +226,7 @@ async def check_quality_node(state: OrderWorkflowState) -> dict:
 
     print(f"   Checking: {requirements.get('main_topic', 'Unknown topic')[:50]}...")
     print(f"   Attempts: {attempts}/{MAX_QUALITY_ATTEMPTS}")
+    print(f"   🔢 DEBUG: Starting quality check with attempts={attempts}")
     print()
 
     llm = get_fast_model()
@@ -205,13 +275,16 @@ async def check_quality_node(state: OrderWorkflowState) -> dict:
         all_passed = result.get('all_rules_passed', True)
         issues = result.get('issues', [])
         suggestions = result.get('suggestions', [])
+
+        # Let LLM decide citation action based on the types of issues found
         citation_action = result.get('citation_action', 'keep')
 
         # Format issues for display and revision
         issue_texts = []
         for issue in issues:
             if isinstance(issue, dict):
-                issue_text = f"{issue.get('rule', 'Unknown')}: {issue.get('problem', '')}"
+                rule = issue.get('rule', 'Unknown')
+                issue_text = f"{rule}: {issue.get('problem', '')}"
                 if issue.get('location'):
                     issue_text += f" (at: {issue.get('location')[:50]})"
                 issue_texts.append(issue_text)
@@ -254,18 +327,41 @@ async def check_quality_node(state: OrderWorkflowState) -> dict:
             }
 
         if all_passed:
-            logger.info("Quality check passed - all rules OK")
-            return {
-                **state,
-                "quality_ok": True,
-                "quality_issues": [],
-                "quality_suggestions": suggestions,
-                "citation_action": "keep",
-                "status": "quality_ok",
-                "agent_logs": state.get('agent_logs', []) + ["[Bot5:Quality] PASSED - all rules OK"]
-            }
+            # Check if we have suggestions to apply
+            if suggestions and attempts == 0:
+                # First pass with no critical errors but has suggestions - apply them
+                new_attempts = attempts + 1
+                logger.info(f"Quality check passed but found {len(suggestions)} suggestions, applying them (attempts: {attempts} → {new_attempts})")
+                print(f"   🔢 DEBUG: No critical errors but applying {len(suggestions)} suggestions (attempts: {attempts} → {new_attempts})")
+                return {
+                    **state,
+                    "quality_ok": False,  # Trigger revision to apply suggestions
+                    "quality_issues": [],  # No critical issues
+                    "quality_suggestions": suggestions,
+                    "citation_action": "keep",
+                    "writer_mode": "revise",
+                    "status": "quality_revising",
+                    "quality_check_attempts": new_attempts,
+                    "agent_logs": state.get('agent_logs', []) + [
+                        f"[Bot5:Quality] PASSED (critical) - applying {len(suggestions)} suggestions, revision #{new_attempts}"
+                    ]
+                }
+            else:
+                # No critical errors and either no suggestions OR already applied suggestions
+                logger.info("Quality check passed - all rules OK")
+                return {
+                    **state,
+                    "quality_ok": True,
+                    "quality_issues": [],
+                    "quality_suggestions": [],  # Clear suggestions after applying
+                    "citation_action": "keep",
+                    "status": "quality_ok",
+                    "agent_logs": state.get('agent_logs', []) + ["[Bot5:Quality] PASSED - all rules OK"]
+                }
         else:
-            logger.info(f"Quality check found {len(issues)} issues, sending for revision")
+            new_attempts = attempts + 1
+            logger.info(f"Quality check found {len(issues)} issues, sending for revision (attempts: {attempts} → {new_attempts})")
+            print(f"   🔢 DEBUG: Incrementing attempts: {attempts} → {new_attempts}")
             return {
                 **state,
                 "quality_ok": False,
@@ -274,9 +370,9 @@ async def check_quality_node(state: OrderWorkflowState) -> dict:
                 "citation_action": citation_action,
                 "writer_mode": "revise",
                 "status": "quality_revising",
-                "quality_check_attempts": attempts + 1,
+                "quality_check_attempts": new_attempts,
                 "agent_logs": state.get('agent_logs', []) + [
-                    f"[Bot5:Quality] FAILED - {len(issues)} issues, revision #{attempts + 1}"
+                    f"[Bot5:Quality] FAILED - {len(issues)} issues, revision #{new_attempts}"
                 ]
             }
 

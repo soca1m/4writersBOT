@@ -29,12 +29,10 @@ async def integrate_citations_node(state: OrderWorkflowState) -> dict:
     draft_text = state.get('draft_text', '')
     requirements = state.get('requirements', {})
     required_sources = requirements.get('required_sources', 3)
+    citation_action = state.get('citation_action', 'keep')
 
-    # Handle search_keywords - can be string or list
-    search_keywords = requirements.get('search_keywords', requirements.get('main_topic', ''))
-    if isinstance(search_keywords, list):
-        search_keywords = ' '.join(search_keywords[:3])
-    search_keywords = str(search_keywords)[:100]
+    # Check if we already have sources in state
+    existing_sources = state.get('sources_found', [])
 
     if not draft_text:
         logger.error("No text to add citations to")
@@ -45,144 +43,232 @@ async def integrate_citations_node(state: OrderWorkflowState) -> dict:
             "agent_logs": state.get('agent_logs', []) + ["[Bot3:Citations] ERROR: No text"]
         }
 
-    print("\n" + "="*80)
-    print("📚 Bot 3: SEARCHING FOR ACADEMIC SOURCES...")
-    print("="*80 + "\n")
+    # Determine if we need to search for new sources
+    need_new_search = (
+        not existing_sources or  # No sources yet
+        len(existing_sources) < required_sources or  # Not enough sources
+        citation_action == 'reinsert'  # Quality checker requests new search
+    )
 
-    # Split keywords into separate search queries for better results
-    keyword_parts = search_keywords.split()
-    search_queries = []
+    sources = existing_sources  # Use existing sources by default
 
-    # Create focused queries (2-3 words each)
-    if len(keyword_parts) > 3:
-        # Split into chunks of 2-3 words
-        for i in range(0, len(keyword_parts), 2):
-            query = ' '.join(keyword_parts[i:i+3])
-            if len(query) > 5:
-                search_queries.append(query)
-    else:
-        search_queries.append(search_keywords)
+    if need_new_search:
+        print("\n" + "="*80)
+        print("📚 Bot 3: SEARCHING FOR ACADEMIC SOURCES...")
+        print("="*80 + "\n")
 
-    # Also add the main topic as a fallback query
-    main_topic = requirements.get('main_topic', '')
-    if main_topic and main_topic not in search_queries:
-        search_queries.append(main_topic)
+        # Get main topic for context
+        main_topic = requirements.get('main_topic', '')
 
-    print(f"🔍 Search queries: {search_queries}")
-    print(f"   Required sources: {required_sources}")
-    print()
+        # Use researcher to generate smart search queries
+        from src.agents.researcher import generate_search_queries
 
-    llm = get_fast_model()
-    relevant_papers = []
-
-    for query in search_queries:
-        if len(relevant_papers) >= required_sources:
-            break
-
-        print(f"   Searching: '{query}'...")
-
-        # Search for papers
-        papers: List[Paper] = await search_papers(
-            query=query,
-            limit=required_sources * 3,
-            year_min=2020
+        search_queries = await generate_search_queries(
+            main_topic=main_topic,
+            required_sources=required_sources,
+            llm=get_fast_model()
         )
 
-        if not papers:
-            print(f"   No papers found for '{query}'")
-            continue
+        if not search_queries:
+            # Fallback: use search_keywords if researcher fails
+            search_keywords = requirements.get('search_keywords', main_topic)
+            if isinstance(search_keywords, list):
+                search_queries = search_keywords[:3]
+            else:
+                search_queries = [search_keywords]
 
-        # Filter: must have abstract
-        papers_with_abstract = [p for p in papers if p.abstract and len(p.abstract) > 50]
-        print(f"   Found {len(papers_with_abstract)} papers with abstract")
+        print(f"🔍 Search queries: {search_queries}")
+        print(f"   Required sources: {required_sources}")
+        print()
 
-        if not papers_with_abstract:
-            continue
+        llm = get_fast_model()
+        relevant_papers = []
 
-        # Check relevance with LLM - use current query, not all keywords
-        if llm:
-            for p in papers_with_abstract:
-                # Skip if we already have this paper
-                if any(rp.title == p.title for rp in relevant_papers):
-                    continue
+        for query in search_queries:
+            if len(relevant_papers) >= required_sources:
+                break
 
-                # Check relevance to the current search query (more specific)
-                relevance_prompt = f"""Can this paper be cited in an academic essay about "{query}"?
+            print(f"   Searching: '{query}'...")
 
-A paper is suitable if it:
-- Discusses the topic directly OR
-- Provides relevant background/context OR
-- Contains related research findings
+            # Search for papers (request more to have better selection)
+            papers: List[Paper] = await search_papers(
+                query=query,
+                limit=max(required_sources * 10, 20),  # Request 10x sources or min 20
+                year_min=2020
+            )
 
-PAPER TITLE: {p.title}
-ABSTRACT: {p.abstract[:500]}
+            if not papers:
+                print(f"   No papers found for '{query}'")
+                continue
 
-Answer "YES" if suitable for citation, "NO" if completely unrelated."""
+            # Filter: must have abstract
+            papers_with_abstract = [p for p in papers if p.abstract and len(p.abstract) > 50]
+            print(f"   Found {len(papers_with_abstract)} papers with abstract")
 
-                try:
-                    response = await llm.ainvoke(relevance_prompt)
-                    answer = response.content.strip().upper()
-                    if "YES" in answer:
+            if not papers_with_abstract:
+                continue
+
+            # Check relevance with LLM - compare to main topic for accuracy
+            if llm:
+                for p in papers_with_abstract:
+                    # Skip if we already have this paper
+                    if any(rp.title == p.title for rp in relevant_papers):
+                        continue
+
+                    # Check relevance to the MAIN TOPIC (not just the search query)
+                    relevance_prompt = f"""You are evaluating if this academic paper is relevant for citing in an essay.
+
+ESSAY TOPIC: {main_topic}
+
+PAPER TO EVALUATE:
+Title: {p.title}
+Abstract: {p.abstract}
+
+RELEVANCE CRITERIA:
+✓ RELEVANT if paper:
+- Discusses the essay topic or closely related concepts
+- Provides background, context, data, or analysis relevant to the topic
+- Contains research findings or theories applicable to the topic
+
+✗ NOT RELEVANT if paper:
+- Is about a completely unrelated topic or field
+- Focuses exclusively on technical/clinical details when topic is about policy/social issues
+
+Answer ONLY "YES" (relevant) or "NO" (not relevant)."""
+
+                    try:
+                        response = await llm.ainvoke(relevance_prompt)
+                        answer = response.content.strip().upper()
+                        if "YES" in answer:
+                            relevant_papers.append(p)
+                            print(f"   ✓ Relevant: {p.title[:50]}...")
+                            if len(relevant_papers) >= required_sources:
+                                break
+                        else:
+                            print(f"   ✗ Not relevant: {p.title[:50]}...")
+                    except Exception as e:
+                        logger.warning(f"Relevance check failed: {e}")
+            else:
+                # No LLM - use keyword matching
+                for p in papers_with_abstract:
+                    if any(rp.title == p.title for rp in relevant_papers):
+                        continue
+                    topic_words = set(search_keywords.lower().split())
+                    text = f"{p.title} {p.abstract}".lower()
+                    if sum(1 for w in topic_words if w in text) >= 2:
                         relevant_papers.append(p)
-                        print(f"   ✓ Relevant: {p.title[:50]}...")
                         if len(relevant_papers) >= required_sources:
                             break
-                    else:
-                        print(f"   ✗ Not relevant: {p.title[:50]}...")
-                except Exception as e:
-                    logger.warning(f"Relevance check failed: {e}")
-        else:
-            # No LLM - use keyword matching
-            for p in papers_with_abstract:
-                if any(rp.title == p.title for rp in relevant_papers):
-                    continue
-                topic_words = set(search_keywords.lower().split())
-                text = f"{p.title} {p.abstract}".lower()
-                if sum(1 for w in topic_words if w in text) >= 2:
-                    relevant_papers.append(p)
-                    if len(relevant_papers) >= required_sources:
-                        break
 
-    papers = relevant_papers
+        papers = relevant_papers
 
-    if not papers:
-        print("   ⚠️ No relevant papers found after checking all queries")
+        if not papers:
+            print("   ⚠️ No relevant papers found after checking all queries")
+            print("   🔄 Trying OpenAlex directly...")
+            print()
 
-    if not papers:
-        logger.warning("No papers found from Semantic Scholar")
-        print("⚠️ No academic sources found. Proceeding without citations.\n")
-        return {
-            **state,
-            "sources_found": [],
-            "text_with_citations": draft_text,
-            "citations_inserted": False,
-            "status": "citations_added",
-            "agent_logs": state.get('agent_logs', []) + ["[Bot3:Citations] No sources found, skipped"]
-        }
+            # Try OpenAlex directly with simpler queries
+            from src.utils.semantic_scholar import AcademicSearchService
+            search_service = AcademicSearchService()
 
-    # Take only required number of sources
-    papers = papers[:required_sources]
+            # Try with simplified topic (first 4-5 words)
+            simple_query = ' '.join(main_topic.split()[:5])
 
-    # Convert Paper objects to dicts for state
-    sources = [
-        {
-            "title": p.title,
-            "authors": p.authors,
-            "year": p.year,
-            "abstract": p.abstract,
-            "citation": p.citation,
-            "url": p.url,
-            "citation_count": p.citation_count
-        }
-        for p in papers
-    ]
+            openalex_papers = await search_service._search_openalex(
+                query=simple_query,
+                limit=max(required_sources * 10, 20),  # Request more papers
+                year_min=2020
+            )
 
-    print(f"✅ Found {len(sources)} academic sources:\n")
-    for i, source in enumerate(sources, 1):
-        print(f"   {i}. {source['citation']}")
-        print(f"      {source['title'][:60]}...")
-        print(f"      Citations: {source['citation_count']}")
-        print()
+            if openalex_papers:
+                print(f"   Found {len(openalex_papers)} papers from OpenAlex")
+
+                # Check relevance with LLM
+                if llm:
+                    for p in openalex_papers:
+                        if not p.abstract or len(p.abstract) < 50:
+                            continue
+
+                        relevance_prompt = f"""You are evaluating if this academic paper is relevant for citing in an essay.
+
+ESSAY TOPIC: {main_topic}
+
+PAPER TO EVALUATE:
+Title: {p.title}
+Abstract: {p.abstract}
+
+RELEVANCE CRITERIA:
+✓ RELEVANT if paper:
+- Discusses the essay topic or closely related concepts
+- Provides background, context, data, or analysis relevant to the topic
+- Contains research findings or theories applicable to the topic
+
+✗ NOT RELEVANT if paper:
+- Is about a completely unrelated topic or field
+- Focuses exclusively on technical/clinical details when topic is about policy/social issues
+
+Answer ONLY "YES" (relevant) or "NO" (not relevant)."""
+
+                        try:
+                            response = await llm.ainvoke(relevance_prompt)
+                            answer = response.content.strip().upper()
+                            if "YES" in answer:
+                                papers.append(p)
+                                print(f"   ✓ Relevant: {p.title[:50]}...")
+                                if len(papers) >= required_sources:
+                                    break
+                            else:
+                                print(f"   ✗ Not relevant: {p.title[:50]}...")
+                        except Exception as e:
+                            logger.warning(f"Relevance check failed: {e}")
+                else:
+                    papers = openalex_papers[:required_sources]
+
+        if not papers:
+            logger.warning("No papers found from any source")
+            print("⚠️ No academic sources found. Proceeding without citations.\n")
+            return {
+                **state,
+                "sources_found": [],
+                "text_with_citations": draft_text,
+                "citations_inserted": False,
+                "status": "citations_added",
+                "agent_logs": state.get('agent_logs', []) + ["[Bot3:Citations] No sources found, skipped"]
+            }
+
+        # Take only required number of sources
+        papers = papers[:required_sources]
+
+        # Convert Paper objects to dicts for state
+        sources = [
+            {
+                "title": p.title,
+                "authors": p.authors,
+                "year": p.year,
+                "abstract": p.abstract,
+                "citation": p.citation,
+                "url": p.url,
+                "citation_count": p.citation_count
+            }
+            for p in papers
+        ]
+
+        print(f"✅ Found {len(sources)} academic sources:\n")
+        for i, source in enumerate(sources, 1):
+            print(f"   {i}. {source['citation']}")
+            print(f"      {source['title'][:60]}...")
+            print(f"      Citations: {source['citation_count']}")
+            print()
+    else:
+        print("\n" + "="*80)
+        print("📚 Bot 3: REUSING EXISTING SOURCES...")
+        print("="*80 + "\n")
+
+        print(f"✅ Using {len(sources)} previously found sources:\n")
+        for i, source in enumerate(sources, 1):
+            print(f"   {i}. {source['citation']}")
+            print(f"      {source['title'][:60]}...")
+            print()
 
     # Insert citations using LLM
     print("📝 Inserting citations into text...")
@@ -204,27 +290,72 @@ Answer "YES" if suitable for citation, "NO" if completely unrelated."""
         for i, s in enumerate(sources, 1)
     ])
 
-    citation_prompt = f"""Insert academic citations into this text. Use the provided sources.
+    citation_prompt = f"""<role>
+You are an academic citation specialist who inserts scholarly citations into academic writing while preserving the original text structure and argument.
+</role>
 
-TEXT TO ADD CITATIONS TO:
+<task>
+Insert APA-format in-text citations from the provided sources into this academic text. Citations must be placed strategically in the MIDDLE of paragraphs only - never in first or last sentences.
+</task>
+
+<input_text>
 {draft_text}
+</input_text>
 
-AVAILABLE SOURCES:
+<available_sources>
 {sources_info}
+</available_sources>
 
-CITATION RULES:
-1. Insert citations in APA format: (Author, Year) or (Author & Author, Year) or (Author et al., Year)
-2. Place citations at the END of sentences that make claims or present facts
-3. Each source should be cited at least once
-4. Citations go BEFORE the period: "...this is true (Smith, 2023)."
+<citation_placement_rules>
+<critical_rule_1>
+NEVER place citations in the FIRST sentence of a body paragraph.
+<reasoning>The first sentence (topic sentence) introduces the paragraph's main idea in the writer's own words.</reasoning>
+</critical_rule_1>
+
+<critical_rule_2>
+NEVER place citations in the LAST sentence of a body paragraph.
+<reasoning>The last sentence (concluding sentence) synthesizes the paragraph in the writer's own words.</reasoning>
+</critical_rule_2>
+
+<critical_rule_3>
+Place citations ONLY in the MIDDLE sentences of paragraphs (sentences 2, 3, 4, etc.)
+<reasoning>Middle sentences present evidence and support, which require citations to scholarly sources.</reasoning>
+</critical_rule_3>
+
+<correct_paragraph_structure>
+Example of proper citation placement:
+
+"Topic sentence introduces the main idea without citation. Second sentence develops the concept with supporting evidence (Smith, 2022). Third sentence continues the analysis and adds more research findings (Johnson, 2021). Concluding sentence synthesizes these ideas without citation."
+
+<what_you_did>
+- Sentence 1: No citation (topic sentence)
+- Sentence 2: Added (Smith, 2022) in middle sentence
+- Sentence 3: Added (Johnson, 2021) in middle sentence
+- Sentence 4: No citation (concluding sentence)
+</what_you_did>
+</correct_paragraph_structure>
+
+<incorrect_examples>
+❌ WRONG: "(Smith, 2022) shows that healthcare costs are rising. Analysis continues."
+<reason>Citation in first sentence violates topic sentence rule</reason>
+
+❌ WRONG: "Healthcare costs are rising. Analysis shows this trend (Smith, 2022)."
+<reason>Citation in last sentence violates concluding sentence rule</reason>
+</incorrect_examples>
+</citation_placement_rules>
+
+<formatting_rules>
+1. APA format ONLY: (Author, Year) or (Author & Author, Year) or (Author et al., Year)
+2. NO page numbers (no direct quotes in this text)
+3. Citations go BEFORE the period: "...this is true (Smith, 2023)."
+4. Each source should be cited at least once
 5. DO NOT add a References section
 6. Keep ALL original text - only ADD citations
+</formatting_rules>
 
-EXAMPLES:
-- "Research shows that exercise improves health (Johnson, 2022)."
-- "According to recent studies (Brown & Davis, 2021), stress affects performance."
-
-Return the COMPLETE text with citations inserted. Do not change the content, only add citations."""
+<output_instruction>
+Return the COMPLETE text with citations inserted ONLY in middle sentences of body paragraphs. Do not modify the original content - only add citations where appropriate.
+</output_instruction>"""
 
     try:
         response = await llm.ainvoke(citation_prompt)
