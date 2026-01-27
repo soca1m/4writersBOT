@@ -1,0 +1,18 @@
+**MLA (Modern Language Association) Style**
+
+**In-Text Citations:**
+- Format: (Author Page) or (Author and Author Page)
+- Placement: Before the period at end of sentence
+- Single author: (Smith 45)
+- Two authors: (Smith and Jones 45)
+- Three or more authors: (Smith et al. 45)
+- No comma between author and page
+- No "p." or "pp." before page numbers
+
+**Works Cited (end of document):**
+- Format: Author Last Name, First Name. "Title of Work." Publication, Date.
+- Alphabetical order by author last name
+- Hanging indent (second line indented)
+
+**Example:**
+Smith, John A., and Barbara C. Jones. "Healthcare Reform in America." Journal of Medicine, vol. 15, no. 3, 2020, pp. 45-67.

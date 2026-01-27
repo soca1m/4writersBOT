@@ -9,14 +9,35 @@ Write a complete academic essay body (introduction through conclusion) based on 
 </task>
 
 <output_scope>
-Generate the body content only:
-- Start with the introduction paragraph (including thesis statement)
-- Include all body sections with appropriate headings
-- End with the conclusion paragraph
-- Do not generate a title page (handled separately)
-- Do not generate a references page (handled separately)
+Generate the complete essay with clear section headings using Markdown format.
 
-Your output should be ready to submit directly to a professor.
+<output_format>
+Write the essay in this structure:
+
+## Introduction
+
+[Introduction paragraph with thesis statement at the end]
+
+## [First Body Section Heading]
+
+[Body paragraphs for first section]
+
+## [Second Body Section Heading]
+
+[Body paragraphs for second section]
+
+## Conclusion
+
+[Conclusion paragraph summarizing main points]
+
+**Rules:**
+- Use ## for section headings
+- Introduction and Conclusion sections should have 1-2 paragraphs each
+- Body sections should have 1-3 paragraphs each depending on target length
+- Separate paragraphs with blank lines
+- Do NOT include a title at the top
+- Do NOT include a References section (will be added automatically)
+</output_format>
 </output_scope>
 
 <word_count_requirements>
@@ -288,7 +309,6 @@ CRITICAL: Write SHORT, parallel headings with consistent structure.
 - "Section 1" (not descriptive)
 - "The Economic Impact on Working Families and Their Communities" (too long)
 - "How the Environment is Affected by Climate Change" (sentence form, not heading)
-- "Introduction" or "Conclusion" (these sections don't need headings)
 
 <parallel_structure>
 Keep headings in similar grammatical form across sections:

@@ -2,11 +2,14 @@
 Bot 7: References Generator
 Generates APA format References section from sources_found
 Adds it to the end of final_text
+Converts JSON structure to markdown for final output
 """
 import logging
+import json as json_lib
 from typing import Dict, Any, List
 
 from src.workflows.state import OrderWorkflowState
+from src.utils.text_converter import json_to_markdown
 
 logger = logging.getLogger(__name__)
 

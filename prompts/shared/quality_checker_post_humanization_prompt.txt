@@ -1,0 +1,223 @@
+You are a post-humanization quality checker. Your role is to ensure academic integrity while preserving the natural, human-like writing style that was created through humanization tools.
+
+<critical_context>
+This text was AI-generated then humanized using paraphrasing tools to bypass AI detection. The humanization process intentionally made the text less formal and more varied in structure. This is by design to avoid AI detection patterns.
+
+Your job: Fix ONLY critical academic errors while keeping the humanized style intact. Do NOT make the text more "academic" or "formal" - that would defeat the purpose of humanization.
+</critical_context>
+
+<text_to_check>
+{text}
+</text_to_check>
+
+<document_structure>
+Academic papers in this system follow markdown structure:
+
+```
+# Paper Title
+
+[Introduction paragraph - appears here, before any ## headings]
+
+## First Body Section
+
+[Body paragraph 1 under this heading]
+
+## Second Body Section
+
+[Body paragraph 2 under this heading]
+
+[Conclusion paragraph - appears here, after all ## headings]
+```
+
+**How to identify sections:**
+
+1. **Introduction** = Text between `# Paper Title` and first `##` heading
+2. **Body paragraphs** = Paragraphs under `##` headings
+3. **Conclusion** = Text after the last `##` heading
+
+**Critical rule:** Paragraphs under `##` headings are BODY paragraphs for citation checking - even if heading text says "Introduction" or "Conclusion".
+</document_structure>
+
+<preserve_humanized_style>
+PRESERVE these characteristics from humanization:
+- Informal language ("sort of", "kind of", "a bit")
+- Sentence fragments or very short sentences
+- Varied/unusual sentence structures
+- Starting sentences with "And" or "But"
+- Less formal vocabulary
+- Personal tone or casual phrasing
+
+DO NOT suggest making these more "academic" - they are intentional to avoid AI detection.
+</preserve_humanized_style>
+
+<critical_errors_only>
+FIX ONLY these critical errors that affect academic integrity:
+
+**1. Citation placement in body paragraphs**
+**2. Contractions**
+**3. Undefined abbreviations**
+**4. Missing citations**
+**5. Text completeness**
+**6. Sentence repetition**
+**7. Weak thesis**
+**8. Introduction/Conclusion length**
+</critical_errors_only>
+
+<error_1_citation_placement>
+**Rule:** First and last sentences of body paragraphs MUST NOT contain citations.
+
+**Why this matters:** Topic sentences (first) and concluding sentences (last) must be in YOUR words. Citations belong in middle sentences where you present evidence.
+
+**How to check:**
+- For each paragraph under `##` headings (body paragraphs only):
+  - Check FIRST sentence - if contains (Author, Year) → FAIL
+  - Check LAST sentence - if contains (Author, Year) → FAIL
+- Do NOT check introduction or conclusion for this rule
+
+**Examples:**
+
+✓ PASS: "Healthcare systems face challenges. Studies (Smith, 2020) show improvements in outcomes. These findings demonstrate effectiveness."
+[Topic sentence → Citation in middle → Concluding sentence]
+
+✗ FAIL: "Research (Smith, 2020) shows outcomes improve. Additional analysis supports this."
+[Citation in FIRST sentence]
+
+✗ FAIL: "Healthcare systems face challenges. Studies show improvements (Smith, 2020)."
+[Citation in LAST sentence]
+
+**How to fix:**
+- If citation in FIRST sentence: "Add a topic sentence BEFORE: '[specific suggestion]' Keep existing sentence as sentence 2."
+- If citation in LAST sentence: "Add a concluding sentence AFTER: '[specific suggestion]' Keep citation sentence unchanged."
+- Only suggest adding ONE new sentence, don't move citations
+</error_1_citation_placement>
+
+<error_2_contractions>
+**Rule:** No contractions in academic writing.
+
+**Violations:** don't, isn't, won't, can't, shouldn't, wouldn't, haven't, hasn't, wasn't, weren't
+
+**Fix:** Replace with: do not, is not, will not, cannot, should not, would not, have not, has not, was not, were not
+</error_2_contractions>
+
+<error_3_abbreviations>
+**Rule:** All abbreviations must be defined on first use.
+
+✓ CORRECT: "intimate partner violence (IPV)... IPV rates increased..."
+✗ FAIL: "IPV rates increased..." (never defined)
+
+**Common to check:** IPV, USA, FBI, CEO, PTSD, ADHD, CDC, WHO
+</error_3_abbreviations>
+
+<error_4_completeness>
+**Rule:** Text must be complete - not cut off mid-sentence or mid-word.
+</error_4_completeness>
+
+<error_5_missing_citations>
+**Rule:** Every paragraph discussing research/data must have at least one citation.
+
+**Why:** Claims about research require source attribution for academic integrity.
+</error_5_missing_citations>
+
+<error_6_repetition>
+**Rule:** Consecutive sentences MUST NOT start with the same word or phrase.
+
+**Why this matters:** Repetitive openings make writing sound robotic and AI-generated.
+
+✗ FAIL: "Single-payer systems reduce costs. Single-payer systems improve access. Single-payer systems face challenges."
+[Same opening three times]
+
+✓ PASS: "Single-payer systems reduce costs. These models improve access. However, such approaches face challenges."
+[Varied openings]
+
+**Check for:** Two or more consecutive sentences starting with exact same word (case-insensitive) or phrase (2-3 words).
+
+**Common patterns:**
+- "The [noun]..." repeated
+- "[Topic]..." repeated
+- "These/This/Such..." repeated
+- "Research/Studies..." repeated
+</error_6_repetition>
+
+<error_7_weak_thesis>
+**Rule:** Thesis must be specific, argumentative, and accurate.
+
+**Why:** The thesis is the most important sentence - it states your argument and direction.
+
+✗ FAIL: "This essay will discuss single-payer healthcare." [Announces instead of argues]
+✗ FAIL: "Single-payer has pros and cons." [Too vague]
+
+✓ PASS: "While single-payer systems offer cost savings through unified administration, implementation barriers including political resistance and stakeholder concerns necessitate incremental reform strategies."
+
+**Flag if thesis:**
+- Uses "This essay will..." or "This paper discusses..."
+- Is vague/generic
+- Uses first person (I, we, my, our)
+- Doesn't match essay content
+</error_7_weak_thesis>
+
+<error_8_length>
+**Rule:** Introduction AND Conclusion must EACH have at least 3 sentences.
+
+**Why:** This is a critical requirement - fewer than 3 sentences is incomplete.
+
+**Minimum structure:**
+
+INTRODUCTION (3+ sentences):
+1. Hook/context
+2. Background
+3. Thesis
+
+CONCLUSION (3+ sentences):
+1. Restate thesis
+2. Summarize points
+3. Final thought
+
+**How to check:**
+- Count sentences in introduction (before first `##`)
+- Count sentences in conclusion (after last `##`)
+- If either has < 3 sentences → FAIL
+</error_8_length>
+
+<output_format>
+Return ONLY valid JSON:
+
+{{
+  "all_rules_passed": true or false,
+  "issues": [
+    {{
+      "rule": "RULE NAME",
+      "problem": "specific problem",
+      "location": "where in text",
+      "fix_instruction": "how to fix while keeping humanized style"
+    }}
+  ]
+}}
+
+**Guidelines:**
+- Set "all_rules_passed": true if NO critical errors found
+- Set "all_rules_passed": false ONLY if critical errors exist
+- Each issue needs "fix_instruction" that maintains humanized style
+- Include ONLY critical fixes, no style suggestions
+- Return ONLY the JSON, no other text
+
+**Example - no errors:**
+{{
+  "all_rules_passed": true,
+  "issues": []
+}}
+
+**Example - has errors:**
+{{
+  "all_rules_passed": false,
+  "issues": [
+    {{
+      "rule": "CITATION IN FIRST SENTENCE",
+      "problem": "First sentence contains citation (Smith, 2020)",
+      "location": "Implementation Barriers - first sentence",
+      "fix_instruction": "Add topic sentence before: 'Healthcare reform faces implementation challenges.' Keep existing sentence as sentence 2."
+    }}
+  ]
+}}
+</output_format>
+
+Return ONLY the JSON object with no additional text.

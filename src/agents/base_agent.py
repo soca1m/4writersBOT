@@ -153,9 +153,17 @@ class PromptBasedAgent(BaseAgent):
         self.prompt_file = prompt_file
         self._prompt_template = None
 
-    def load_prompt(self) -> str:
+    def load_prompt(
+        self,
+        assignment_type: Optional[str] = None,
+        citation_style: Optional[str] = None
+    ) -> str:
         """
-        Load prompt template using PromptManager
+        Load prompt template using PromptManager with assignment-type support
+
+        Args:
+            assignment_type: Type of assignment (essay, discussion_post, etc.)
+            citation_style: Citation style (APA, MLA, Chicago, Harvard)
 
         Returns:
             Prompt template string
@@ -166,8 +174,15 @@ class PromptBasedAgent(BaseAgent):
             # Remove .txt extension if present
             prompt_name = self.prompt_file.replace('.txt', '')
 
-            self._prompt_template = PromptManager.load(prompt_name)
-            self.logger.debug(f"Loaded prompt: {prompt_name}")
+            self._prompt_template = PromptManager.load(
+                prompt_name,
+                assignment_type=assignment_type,
+                citation_style=citation_style
+            )
+            self.logger.debug(
+                f"Loaded prompt: {prompt_name} "
+                f"(type={assignment_type}, style={citation_style})"
+            )
 
         return self._prompt_template or ""
 

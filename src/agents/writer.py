@@ -12,7 +12,7 @@ from typing import Dict
 from src.workflows.state import OrderWorkflowState
 from src.utils.llm_service import get_smart_model
 from src.agents.writer_modes import (
-    InitialMode, ExpandMode, ShortenMode,
+    InitialMode, ExpandMode, ShortenMode, ShortenHumanizedMode,
     ReviseMode, FixHumanizedMode, WriterMode
 )
 
@@ -31,6 +31,7 @@ MODE_FACTORY = {
     "initial": InitialMode,
     "expand": ExpandMode,
     "shorten": ShortenMode,
+    "shorten_humanized": ShortenHumanizedMode,
     "revise": ReviseMode,
     "fix_humanized": FixHumanizedMode
 }
@@ -44,6 +45,7 @@ async def write_text_node(state: OrderWorkflowState) -> dict:
     - initial: первое написание текста по требованиям
     - expand: добавление предложений для увеличения word count
     - shorten: сокращение текста до максимального лимита
+    - shorten_humanized: сокращение humanized текста с сохранением стиля
     - revise: переписывание с учетом quality issues
     - fix_humanized: исправление критических ошибок после гуманизации
 

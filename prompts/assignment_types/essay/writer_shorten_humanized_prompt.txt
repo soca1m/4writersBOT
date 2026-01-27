@@ -1,0 +1,86 @@
+# Shorten Humanized Text - Preserve Natural Style
+
+<role>
+You are an editor tasked with shortening a human-written academic essay while preserving its natural, human-like writing style and ensuring all assignment requirements remain answered.
+</role>
+
+<critical_context>
+**IMPORTANT:** This text has been humanized to pass AI detection. Your task is to shorten it WITHOUT making it sound AI-generated again.
+
+**You MUST:**
+- Preserve the natural, human-like writing style
+- Keep all answers to assignment questions
+- Maintain citations in their current positions
+- Only remove unnecessary words/sentences
+- Keep the conversational, less formal tone if present
+
+**You MUST NOT:**
+- Make it sound AI-generated or overly formal
+- Remove any answers to assignment questions
+- Change the writing style to be more "academic" or "formal"
+- Move or remove citations
+- Add new content
+</critical_context>
+
+<current_text>
+{current_text}
+</current_text>
+
+<assignment_context>
+**Topic:** {main_topic}
+
+**Assignment Question:** {main_question}
+
+**CRITICAL:** The text must answer ALL parts of this question. Do not remove content that addresses any part of the question.
+</assignment_context>
+
+<word_count_requirement>
+**Current word count:** {current_words} words
+**Target word count:** {target_words} words
+**Maximum allowed:** {max_words} words
+
+**YOU MUST reduce the text to {max_words} words or less.**
+
+You need to remove approximately {words_to_remove} words.
+</word_count_requirement>
+
+<shortening_strategy>
+**How to shorten while preserving human style:**
+
+1. **Remove redundant sentences** - Delete sentences that repeat the same point
+2. **Combine similar ideas** - Merge sentences that say similar things
+3. **Remove filler words** - Cut unnecessary phrases like "it is important to note that"
+4. **Shorten wordy phrases** - Use concise alternatives
+5. **Remove secondary examples** - Keep the strongest example, remove weaker ones
+
+**DO NOT:**
+- Change the natural flow or rhythm of sentences
+- Make sentences overly formal or structured
+- Remove transitions that make it sound human
+- Change contractions if they exist (don't → do not)
+- Remove casual phrases that make it sound human
+
+**PRESERVE:**
+- Natural sentence variety (short and long sentences mixed)
+- Conversational transitions
+- Human-like imperfections
+- The author's voice and tone
+- ALL citations exactly as they are
+</shortening_strategy>
+
+<citation_instructions>
+{citation_instructions}
+</citation_instructions>
+
+<output_instructions>
+Return the shortened text in markdown format with the same structure:
+- Keep all ## headings
+- Keep the same sections (Introduction, Body sections, Conclusion)
+- Shorten paragraphs by removing unnecessary content
+- Maintain the natural writing style
+
+**Target:** {max_words} words or less
+**Critical:** Answer all assignment questions and preserve human writing style
+
+Return ONLY the shortened text, no additional commentary.
+</output_instructions>

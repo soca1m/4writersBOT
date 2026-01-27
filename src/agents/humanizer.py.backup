@@ -1,0 +1,364 @@
+"""
+Text Humanizer Agent
+Uses Undetectable AI to humanize AI-generated text
+Supports two modes:
+- Full: Complete rewrite using rehumanize (cheaper, for >70% AI)
+- Sentence: Targeted humanization of AI sentences (for 5-70% AI)
+
+Works with JSON structure:
+- Extracts all paragraphs into one text
+- Humanizes the combined text
+- Splits back by paragraph count
+- Rebuilds JSON structure
+"""
+import logging
+import re
+import json
+from typing import Dict, Any, List
+
+from src.workflows.state import OrderWorkflowState
+from src.utils.undetectable_ai import UndetectableAI
+from src.agents.ai_detector import AIDetector
+from src.utils.text_converter import json_to_markdown
+
+logger = logging.getLogger(__name__)
+
+# Create shared AIDetector instance for body text extraction
+_ai_detector = AIDetector()
+
+
+def extract_paragraphs_from_structure(structure: Dict[str, Any]) -> List[str]:
+    """Extract all paragraphs from JSON structure into a flat list"""
+    paragraphs = []
+    for section in structure.get('sections', []):
+        for paragraph in section.get('paragraphs', []):
+            paragraphs.append(paragraph)
+    return paragraphs
+
+
+def rebuild_structure_with_paragraphs(original_structure: Dict[str, Any], new_paragraphs: List[str]) -> Dict[str, Any]:
+    """Rebuild JSON structure with new paragraph texts, preserving structure"""
+    new_structure = {"sections": []}
+    paragraph_index = 0
+
+    for section in original_structure.get('sections', []):
+        section_copy = {
+            "type": section.get("type"),
+            "heading": section.get("heading"),
+            "paragraphs": []
+        }
+
+        # Get the same number of paragraphs as original
+        num_paragraphs = len(section.get('paragraphs', []))
+        for _ in range(num_paragraphs):
+            if paragraph_index < len(new_paragraphs):
+                section_copy["paragraphs"].append(new_paragraphs[paragraph_index])
+                paragraph_index += 1
+
+        new_structure["sections"].append(section_copy)
+
+    return new_structure
+
+
+async def humanize_text_node(state: OrderWorkflowState) -> dict:
+    """
+    Humanize AI-generated text using Undetectable AI
+
+    Modes:
+    - "full": Complete rehumanize (>70% AI, uses rehumanize endpoint)
+    - "sentence": Targeted sentence humanization (5-70% AI)
+
+    Works with JSON structure:
+    - Extracts all paragraphs
+    - Combines into one text
+    - Humanizes
+    - Splits back by paragraph count
+    - Rebuilds JSON
+
+    Args:
+        state: Current workflow state
+
+    Returns:
+        Updated state with humanized text
+    """
+    logger.info(f"🤖 Humanizing text for order {state['order_id']}...")
+
+    draft_structure = state.get('draft_structure')
+    full_text = state.get('text_with_citations', state.get('draft_text', ''))
+    ai_score = state.get('ai_score', 0.0)
+    attempts = state.get('ai_check_attempts', 0)
+    humanization_mode = state.get('humanization_mode', 'full')
+    ai_sentences = state.get('ai_sentences', [])
+    previous_doc_id = state.get('humanized_document_id')
+
+    if not draft_structure and not full_text:
+        logger.error("No text to humanize")
+        return {
+            **state,
+            "status": "failed",
+            "error": "No text for humanization",
+            "agent_logs": state.get('agent_logs', []) + ["[Humanizer] ERROR: No text"]
+        }
+
+    print("\n" + "="*80)
+    print("🔄 HUMANIZING TEXT")
+    print("="*80 + "\n")
+
+    print(f"   Current AI Score: {ai_score:.1f}%")
+    print(f"   Humanization Mode: {humanization_mode.upper()}")
+    print(f"   Attempt: {attempts}/5")
+
+    # Initialize Undetectable AI client
+    ai_client = UndetectableAI()
+
+    if not ai_client.api_key:
+        print(f"   ⚠️ UNDETECTABLE_API_KEY not set, cannot humanize")
+        print(f"   Proceeding with original text...\n")
+        return {
+            **state,
+            "status": "ai_passed",  # Skip humanization, proceed
+            "humanization_mode": "none",
+            "agent_logs": state.get('agent_logs', []) + [
+                "[Humanizer] API key not set, skipped"
+            ]
+        }
+
+    # Extract paragraphs from JSON structure if available
+    if draft_structure:
+        # JSON mode: extract all paragraphs
+        original_paragraphs = extract_paragraphs_from_structure(draft_structure)
+        body_text = '\n\n'.join(original_paragraphs)
+        num_paragraphs = len(original_paragraphs)
+
+        print(f"   Text breakdown (JSON mode):")
+        print(f"   - Total paragraphs: {num_paragraphs}")
+        print(f"   - Combined text: {len(body_text.split())} words")
+        print()
+    else:
+        # Fallback to plain text mode
+        body_text = _ai_detector.extract_body_text(full_text)
+        original_paragraphs = None
+        num_paragraphs = 0
+
+        print(f"   Text breakdown (plain text mode):")
+        print(f"   - Body text: {len(body_text.split())} words")
+        print()
+
+    # Determine parameters based on assignment type
+    requirements = state.get('requirements', {})
+    assignment_type = requirements.get('assignment_type', 'essay')
+
+    # Map assignment types to purpose (only Essay or General Writing allowed)
+    purpose_map = {
+        'essay': 'Essay',
+        'article': 'General Writing',
+        'report': 'General Writing',
+        'research paper': 'Essay',
+        'discussion post': 'Essay',  # Changed from General Writing to Essay for better academic style
+        'case study': 'General Writing',
+        'short answer': 'General Writing'
+    }
+    purpose = purpose_map.get(assignment_type.lower(), 'Essay')
+
+    # Readability: Only High School or University (no other options)
+    readability = "University"
+
+    if humanization_mode == "full":
+        # FULL HUMANIZATION MODE (>70% AI)
+        print(f"   🔄 FULL HUMANIZATION MODE")
+        print(f"   Strategy: Complete text rewrite")
+
+        if previous_doc_id and attempts > 1:
+            # Use rehumanize endpoint (cheaper, reuses previous humanization)
+            print(f"   Using rehumanize endpoint (cheaper)")
+            print(f"   Previous document ID: {previous_doc_id}")
+            print(f"   This will create a new variation of the humanized text")
+            print()
+
+            print("   Submitting for rehumanization...")
+            result = await ai_client.rehumanize(previous_doc_id, timeout=120)
+        else:
+            # First time - use full humanize endpoint
+            print(f"   Using full humanize endpoint")
+            print(f"   Parameters:")
+            print(f"   - Purpose: {purpose}")
+            print(f"   - Readability: {readability}")
+            print(f"   - Strength: Quality (best academic style)")
+            print(f"   - Model: v11sr (improved version)")
+            print()
+
+            print("   Submitting for humanization...")
+            print("   (This may take 10-60 seconds depending on length)")
+
+            result = await ai_client.humanize(
+                text=body_text,
+                readability=readability,
+                purpose=purpose,
+                strength="Quality",  # Quality for best academic style (was Balanced)
+                model="v11sr",  # v11sr for better results (was v11)
+                timeout=120
+            )
+
+    else:
+        # SENTENCE-LEVEL HUMANIZATION MODE (5-70% AI)
+        print(f"   🎯 SENTENCE-LEVEL HUMANIZATION MODE")
+        print(f"   Strategy: Target AI-detected sentences only")
+        print(f"   AI Sentences detected: {len(ai_sentences)}")
+        print()
+
+        if not ai_sentences:
+            print(f"   ⚠️ No specific AI sentences provided")
+            print(f"   Falling back to full humanization")
+            print()
+
+            result = await ai_client.humanize(
+                text=body_text,
+                readability=readability,
+                purpose=purpose,
+                strength="Quality",  # Quality for academic style
+                model="v11sr",
+                timeout=120
+            )
+        else:
+            # For now, use full humanization with Quality strength
+            # TODO: Implement true sentence-level replacement in future
+            print(f"   Using Quality humanization (maintains academic style)")
+            print(f"   Parameters:")
+            print(f"   - Purpose: {purpose}")
+            print(f"   - Readability: {readability}")
+            print(f"   - Strength: Quality")
+            print(f"   - Model: v11sr")
+            print()
+
+            print("   Submitting for humanization...")
+
+            result = await ai_client.humanize(
+                text=body_text,
+                readability=readability,
+                purpose=purpose,
+                strength="Quality",  # Quality for best academic results
+                model="v11sr",
+                timeout=120
+            )
+
+    # Check result
+    if not result.get("success"):
+        error_msg = result.get("error", "Unknown error")
+        print(f"\n   ⚠️ Humanization failed: {error_msg}")
+
+        # Check if it's a credits issue
+        if "credits" in error_msg.lower() or "402" in error_msg:
+            print("   ❌ Insufficient credits for humanization")
+            print("   Proceeding with original text...\n")
+            return {
+                **state,
+                "status": "ai_passed",  # Continue to references
+                "humanization_mode": "none",
+                "agent_logs": state.get('agent_logs', []) + [
+                    f"[Humanizer] Insufficient credits, using original text"
+                ]
+            }
+
+        print("   Retrying with original text...\n")
+        return {
+            **state,
+            "status": "ai_humanizing",  # Will retry
+            "agent_logs": state.get('agent_logs', []) + [
+                f"[Humanizer] Error: {error_msg}, attempt {attempts}"
+            ]
+        }
+
+    # Success!
+    humanized_body = result.get("output", body_text)
+    document_id = result.get("document_id") or result.get("id")
+
+    # Rebuild structure if JSON mode
+    if draft_structure and original_paragraphs:
+        # Split humanized text back into paragraphs
+        # Split by double newline or estimate based on original paragraph count
+        humanized_paragraphs = humanized_body.split('\n\n')
+
+        # If split count doesn't match, try to split more intelligently
+        if len(humanized_paragraphs) != num_paragraphs:
+            # Estimate paragraph boundaries by word count
+            words = humanized_body.split()
+            words_per_paragraph = len(words) // num_paragraphs
+            humanized_paragraphs = []
+            current_paragraph = []
+            word_count = 0
+
+            for word in words:
+                current_paragraph.append(word)
+                word_count += 1
+
+                if word_count >= words_per_paragraph and len(humanized_paragraphs) < num_paragraphs - 1:
+                    # End paragraph at sentence boundary
+                    if word.endswith('.') or word.endswith('!') or word.endswith('?'):
+                        humanized_paragraphs.append(' '.join(current_paragraph))
+                        current_paragraph = []
+                        word_count = 0
+
+            # Add remaining words as last paragraph
+            if current_paragraph:
+                humanized_paragraphs.append(' '.join(current_paragraph))
+
+        # Rebuild JSON structure
+        humanized_structure = rebuild_structure_with_paragraphs(draft_structure, humanized_paragraphs)
+
+        # Convert to markdown for text_with_citations
+        full_humanized_text = json_to_markdown(humanized_structure)
+
+        print(f"\n   ✅ Humanization complete!")
+        if document_id:
+            print(f"   Document ID: {document_id}")
+        print(f"   Paragraphs: {num_paragraphs}")
+        print(f"   Body text: {len(body_text.split())} → {len(humanized_body.split())} words")
+        print(f"   Change: {abs(len(humanized_body.split()) - len(body_text.split()))} words")
+
+        # Preview
+        if len(humanized_body) > 200:
+            print(f"\n   Preview of humanized text:")
+            print(f"   {humanized_body[:200]}...")
+
+        print(f"\n   → Returning to AI detector for re-check...")
+        print()
+
+        logger.info(f"Text humanized successfully (JSON mode), mode: {humanization_mode}, document ID: {document_id}")
+
+        return {
+            **state,
+            "draft_structure": humanized_structure,
+            "text_with_citations": full_humanized_text,
+            "text_before_humanization": full_text,
+            "humanized_document_id": document_id,
+            "post_humanization_check": True,
+            "status": "ai_humanizing",
+            "agent_logs": state.get('agent_logs', []) + [
+                f"[Humanizer] Humanized (JSON mode) with mode={humanization_mode}, doc_id={document_id}"
+            ]
+        }
+    else:
+        # Plain text mode (fallback)
+        full_humanized_text = humanized_body
+
+        print(f"\n   ✅ Humanization complete!")
+        if document_id:
+            print(f"   Document ID: {document_id}")
+        print(f"   Body text: {len(body_text.split())} → {len(humanized_body.split())} words")
+
+        print(f"\n   → Returning to AI detector for re-check...")
+        print()
+
+        logger.info(f"Text humanized successfully (plain mode), mode: {humanization_mode}, document ID: {document_id}")
+
+        return {
+            **state,
+            "text_with_citations": full_humanized_text,
+            "text_before_humanization": full_text,
+            "humanized_document_id": document_id,
+            "post_humanization_check": True,
+            "status": "ai_humanizing",
+            "agent_logs": state.get('agent_logs', []) + [
+                f"[Humanizer] Humanized (plain mode) with mode={humanization_mode}, doc_id={document_id}"
+            ]
+        }

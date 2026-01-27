@@ -134,16 +134,36 @@ def get_fast_model():
     return get_claude_model(model_name=model_name, temperature=0.3, max_tokens=None)
 
 
-def get_smart_model():
+def get_smart_model(use_reasoning: bool = False):
     """
     Возвращает умную модель для сложных задач (генерация текста, переписывание)
+
+    Args:
+        use_reasoning: Включить extended thinking (reasoning) для модели
 
     Returns:
         Мощная LLM модель (Claude 4.5 Sonnet) без ограничений по токенам
     """
     model_name = env.str("SMART_MODEL", default="anthropic/claude-sonnet-4.5")
-    logger.info(f"Using smart model: {model_name}")
-    return get_claude_model(model_name=model_name, temperature=0.7, max_tokens=None)
+    logger.info(f"Using smart model: {model_name} (reasoning={use_reasoning})")
+
+    if use_reasoning:
+        # Add reasoning parameter via model_kwargs
+        service = get_openrouter_service()
+        return service.get_model(
+            model_name=model_name,
+            temperature=0.7,
+            max_tokens=None,
+            model_kwargs={
+                "extra_body": {
+                    "reasoning": {
+                        "max_tokens": 2000
+                    }
+                }
+            }
+        )
+    else:
+        return get_claude_model(model_name=model_name, temperature=0.7, max_tokens=None)
 
 
 def get_writer_model():

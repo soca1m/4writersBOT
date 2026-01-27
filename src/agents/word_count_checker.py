@@ -94,12 +94,16 @@ class WordCountChecker(BaseAgent):
 
             logger.warning(f"Word count too high: {word_count}/{max_words} max")
 
+            # Check if this is after humanization
+            post_humanization = state.get("post_humanization_check", False)
+            shorten_mode = "shorten_humanized" if post_humanization else "shorten"
+
             return self.update_state(
                 state,
                 status="word_count_shortening",
                 word_count=word_count,
                 word_count_ok=False,
-                writer_mode="shorten"
+                writer_mode=shorten_mode
             )
 
         # Check if text meets minimum

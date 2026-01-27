@@ -2,10 +2,12 @@
 Prompt Management Service - DRY principle
 
 Centralizes all prompt loading, caching, and formatting
+Supports assignment-type and citation-style specific prompts
 """
 from pathlib import Path
 from typing import Dict, Optional
 import logging
+from src.utils.prompt_selector import get_prompt_selector
 
 logger = logging.getLogger(__name__)
 
@@ -34,39 +36,58 @@ class PromptManager:
         return cls._instance
 
     @classmethod
-    def load(cls, prompt_name: str) -> str:
+    def load(
+        cls,
+        prompt_name: str,
+        assignment_type: Optional[str] = None,
+        citation_style: Optional[str] = None
+    ) -> str:
         """
-        Load prompt template by name
+        Load prompt template by name with assignment-type and citation-style support
 
         Args:
             prompt_name: Name of prompt file (without .txt extension)
+            assignment_type: Type of assignment (essay, discussion_post, research_paper)
+            citation_style: Citation style (APA, MLA, Chicago, Harvard)
 
         Returns:
             Prompt template content
 
         Example:
-            >>> PromptManager.load("writer_prompt")
+            >>> PromptManager.load("writer_prompt", assignment_type="essay", citation_style="APA")
             "You are an academic writer..."
         """
+        # Create cache key including type and style
+        cache_key = f"{prompt_name}_{assignment_type or 'default'}_{citation_style or 'default'}"
+
         # Check cache first
-        if prompt_name in cls._cache:
-            return cls._cache[prompt_name]
+        if cache_key in cls._cache:
+            return cls._cache[cache_key]
 
-        # Load from file
-        prompt_file = PROMPTS_DIR / f"{prompt_name}.txt"
-
-        if not prompt_file.exists():
-            logger.warning(f"Prompt file not found: {prompt_file}")
-            return ""
+        # Use PromptSelector for intelligent prompt loading
+        selector = get_prompt_selector()
 
         try:
-            content = prompt_file.read_text(encoding='utf-8')
-            cls._cache[prompt_name] = content
-            logger.debug(f"Loaded and cached prompt: {prompt_name}")
+            content = selector.load_prompt(prompt_name, assignment_type, citation_style)
+            cls._cache[cache_key] = content
+            logger.debug(f"Loaded and cached prompt: {prompt_name} (type={assignment_type}, style={citation_style})")
             return content
-        except Exception as e:
-            logger.error(f"Error loading prompt {prompt_name}: {e}")
-            return ""
+        except FileNotFoundError as e:
+            # Fallback to legacy location if PromptSelector fails
+            logger.warning(f"PromptSelector failed, trying legacy location: {e}")
+            prompt_file = PROMPTS_DIR / f"{prompt_name}.txt"
+
+            if not prompt_file.exists():
+                logger.error(f"Prompt file not found in legacy location: {prompt_file}")
+                return ""
+
+            try:
+                content = prompt_file.read_text(encoding='utf-8')
+                cls._cache[cache_key] = content
+                return content
+            except Exception as load_error:
+                logger.error(f"Error loading prompt {prompt_name}: {load_error}")
+                return ""
 
     @classmethod
     def format(cls, template: str, **variables) -> str:

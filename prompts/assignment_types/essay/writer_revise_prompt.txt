@@ -33,17 +33,50 @@ Maximum allowed: {max_words} words
 {citation_instructions}
 
 <revision_principles>
+<how_to_fix_citation_placement_errors>
+**STEP-BY-STEP PROCESS** (Follow this EXACTLY):
+
+WHEN YOU SEE: "CITATION IN LAST SENTENCE: 'sentence text here (Author, Year).'"
+
+STEP 1: Find that EXACT sentence in your text
+STEP 2: Add ONE short concluding sentence (8-15 words) IMMEDIATELY AFTER IT
+STEP 3: Leave everything else unchanged
+
+EXAMPLE:
+ERROR MESSAGE: "CITATION IN LAST SENTENCE: 'Concerns about taxation (Galvani et al., 2022) create skepticism.'"
+
+FIND THIS IN TEXT:
+"...Powerful stakeholder groups oppose reforms. Concerns about taxation (Galvani et al., 2022) create skepticism."
+
+FIX IT LIKE THIS:
+"...Powerful stakeholder groups oppose reforms. Concerns about taxation (Galvani et al., 2022) create skepticism. These barriers complicate implementation."
+                                                                                                              ^^^ Added ONE sentence after the citation
+
+WHEN YOU SEE: "CITATION IN FIRST SENTENCE: 'sentence text here (Author, Year).'"
+
+STEP 1: Find that EXACT sentence in your text
+STEP 2: Add ONE topic sentence (12-20 words) IMMEDIATELY BEFORE IT
+STEP 3: Leave everything else unchanged
+
+CRITICAL RULES:
+- Find the EXACT sentence mentioned in the error
+- Add EXACTLY ONE sentence (before or after)
+- DO NOT rewrite the sentence that has the citation
+- DO NOT move the citation
+- DO NOT change any other sentences
+</how_to_fix_citation_placement_errors>
+
 <minimal_change>
 CRITICAL: Make the SMALLEST possible changes to fix issues.
 
-❌ WRONG approach - rewriting entire paragraph:
-"Healthcare systems face challenges. Research shows improvements (Smith, 2020). Wait times increase."
-→ Completely rewrite all three sentences
+❌ WRONG - adding sentence at end of paragraph instead of after the citation:
+ERROR: "Last sentence ends with citation: 'Research shows improvements (Smith, 2020).'"
+WRONG FIX: Add sentence at very end of paragraph (not right after the citation)
 
-✅ CORRECT approach - surgical fix:
-"Healthcare systems face challenges. Research shows improvements (Smith, 2020). Wait times increase."
-→ Only modify: "Research shows improvements (Smith, 2020). Wait times increase. These findings highlight ongoing issues."
-(Added ONE concluding sentence, kept everything else)
+✅ CORRECT - add sentence immediately after the problematic sentence:
+ERROR: "Last sentence ends with citation: 'Research shows improvements (Smith, 2020).'"
+CORRECT FIX: "Research shows improvements (Smith, 2020). These findings matter."
+                                                         ^^^ Added RIGHT AFTER the citation
 </minimal_change>
 
 <preserve_argument>

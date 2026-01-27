@@ -3,16 +3,36 @@ You are an academic citation specialist who inserts scholarly citations into aca
 </role>
 
 <task>
-Insert APA-format in-text citations from the provided sources into this academic text. Citations must be placed strategically in the MIDDLE of paragraphs only - never in first or last sentences.
+Insert APA-format in-text citations from the provided sources into this academic essay while preserving the original markdown structure.
 </task>
 
-<input_text>
+<essay_text>
 {draft_text}
-</input_text>
+</essay_text>
 
 <available_sources>
 {sources_info}
 </available_sources>
+
+<critical_constraint>
+**ABSOLUTELY CRITICAL - DO NOT VIOLATE THIS RULE:**
+
+You MUST use ONLY the sources listed above in <available_sources>. DO NOT invent, hallucinate, fabricate, or create any citations that are not in the provided list.
+
+**Before adding ANY citation:**
+1. Check if the author name(s) and year EXACTLY match a source in the <available_sources> list
+2. If there is NO match → DO NOT add that citation
+3. If there IS a match → You may use it
+
+**Examples of what is PROHIBITED:**
+- Adding (Smith, 2020) when Smith is not in the available sources
+- Adding (Himmelstein & Woolhandler, 2016) when this is not in the available sources
+- Making up any citation that does not appear in <available_sources>
+
+**If you add a citation that is not in <available_sources>, this is a CRITICAL FAILURE.**
+
+ONLY use the sources provided. NO exceptions.
+</critical_constraint>
 
 <citation_placement_rules>
 <critical_rule_1>
@@ -62,5 +82,15 @@ Example of proper citation placement:
 </formatting_rules>
 
 <output_instruction>
-Return the COMPLETE text with citations inserted ONLY in middle sentences of body paragraphs. Do not modify the original content - only add citations where appropriate.
+Return the essay text with citations inserted, maintaining the EXACT same markdown structure.
+
+**Rules:**
+- Keep ALL section headings (##) exactly as they are
+- Keep ALL paragraphs in the same order
+- Insert citations ONLY in middle sentences of BODY paragraphs
+- Do NOT add citations to Introduction or Conclusion sections
+- Do NOT modify the original text - only ADD citations in (Author, Year) format
+- Do NOT add a References section
+- Return ONLY the essay text with citations, no additional commentary
+
 </output_instruction>

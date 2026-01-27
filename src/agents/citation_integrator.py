@@ -5,11 +5,13 @@ Bot 3: Citation Integrator
 """
 import logging
 import re
+import json
 from typing import Dict, Any, List
 
 from src.workflows.state import OrderWorkflowState
-from src.utils.llm_service import get_fast_model
+from src.utils.llm_service import get_smart_model
 from src.utils.semantic_scholar import search_papers, Paper
+from src.services.prompt_manager import PromptManager
 
 logger = logging.getLogger(__name__)
 
@@ -66,7 +68,7 @@ async def integrate_citations_node(state: OrderWorkflowState) -> dict:
         search_queries = await generate_search_queries(
             main_topic=main_topic,
             required_sources=required_sources,
-            llm=get_fast_model()
+            llm=get_smart_model()
         )
 
         if not search_queries:
@@ -81,7 +83,7 @@ async def integrate_citations_node(state: OrderWorkflowState) -> dict:
         print(f"   Required sources: {required_sources}")
         print()
 
-        llm = get_fast_model()
+        llm = get_smart_model()
         relevant_papers = []
 
         for query in search_queries:
@@ -273,7 +275,7 @@ Answer ONLY "YES" (relevant) or "NO" (not relevant)."""
     # Insert citations using LLM
     print("📝 Inserting citations into text...")
 
-    llm = get_fast_model()
+    llm = get_smart_model()
     if not llm:
         logger.warning("LLM not available for citation insertion")
         return {
@@ -286,82 +288,35 @@ Answer ONLY "YES" (relevant) or "NO" (not relevant)."""
         }
 
     sources_info = "\n".join([
-        f"SOURCE {i}: {s['citation']}\n  Title: {s['title']}\n  Abstract: {s['abstract'][:200] if s['abstract'] else 'No abstract'}..."
+        f"SOURCE {i}: {s['citation']}\n  Title: {s['title']}\n  Abstract: {s['abstract'] if s['abstract'] else 'No abstract'}"
         for i, s in enumerate(sources, 1)
     ])
 
-    citation_prompt = f"""<role>
-You are an academic citation specialist who inserts scholarly citations into academic writing while preserving the original text structure and argument.
-</role>
+    # Load prompt from file with assignment-type support
+    requirements = state.get('requirements', {})
+    assignment_type = requirements.get('assignment_type', 'essay')
+    citation_style = requirements.get('citation_style', 'APA')
 
-<task>
-Insert APA-format in-text citations from the provided sources into this academic text. Citations must be placed strategically in the MIDDLE of paragraphs only - never in first or last sentences.
-</task>
+    prompt_template = PromptManager.load(
+        "citation_integrator_prompt",
+        assignment_type=assignment_type,
+        citation_style=citation_style
+    )
 
-<input_text>
-{draft_text}
-</input_text>
-
-<available_sources>
-{sources_info}
-</available_sources>
-
-<citation_placement_rules>
-<critical_rule_1>
-NEVER place citations in the FIRST sentence of a body paragraph.
-<reasoning>The first sentence (topic sentence) introduces the paragraph's main idea in the writer's own words.</reasoning>
-</critical_rule_1>
-
-<critical_rule_2>
-NEVER place citations in the LAST sentence of a body paragraph.
-<reasoning>The last sentence (concluding sentence) synthesizes the paragraph in the writer's own words.</reasoning>
-</critical_rule_2>
-
-<critical_rule_3>
-Place citations ONLY in the MIDDLE sentences of paragraphs (sentences 2, 3, 4, etc.)
-<reasoning>Middle sentences present evidence and support, which require citations to scholarly sources.</reasoning>
-</critical_rule_3>
-
-<correct_paragraph_structure>
-Example of proper citation placement:
-
-"Topic sentence introduces the main idea without citation. Second sentence develops the concept with supporting evidence (Smith, 2022). Third sentence continues the analysis and adds more research findings (Johnson, 2021). Concluding sentence synthesizes these ideas without citation."
-
-<what_you_did>
-- Sentence 1: No citation (topic sentence)
-- Sentence 2: Added (Smith, 2022) in middle sentence
-- Sentence 3: Added (Johnson, 2021) in middle sentence
-- Sentence 4: No citation (concluding sentence)
-</what_you_did>
-</correct_paragraph_structure>
-
-<incorrect_examples>
-❌ WRONG: "(Smith, 2022) shows that healthcare costs are rising. Analysis continues."
-<reason>Citation in first sentence violates topic sentence rule</reason>
-
-❌ WRONG: "Healthcare costs are rising. Analysis shows this trend (Smith, 2022)."
-<reason>Citation in last sentence violates concluding sentence rule</reason>
-</incorrect_examples>
-</citation_placement_rules>
-
-<formatting_rules>
-1. APA format ONLY: (Author, Year) or (Author & Author, Year) or (Author et al., Year)
-2. NO page numbers (no direct quotes in this text)
-3. Citations go BEFORE the period: "...this is true (Smith, 2023)."
-4. Each source should be cited at least once
-5. DO NOT add a References section
-6. Keep ALL original text - only ADD citations
-</formatting_rules>
-
-<output_instruction>
-Return the COMPLETE text with citations inserted ONLY in middle sentences of body paragraphs. Do not modify the original content - only add citations where appropriate.
-</output_instruction>"""
+    # Format prompt with variables
+    citation_prompt = PromptManager.format(
+        prompt_template,
+        draft_text=draft_text,
+        sources_info=sources_info,
+        citation_style=citation_style
+    )
 
     try:
         response = await llm.ainvoke(citation_prompt)
-        text_with_citations = response.content.strip()
+        response_text = response.content.strip()
 
         # Remove any References section if added
+        text_with_citations = response_text
         for marker in ["References", "Bibliography", "Works Cited"]:
             if marker in text_with_citations:
                 text_with_citations = text_with_citations[:text_with_citations.find(marker)].strip()

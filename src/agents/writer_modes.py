@@ -80,9 +80,26 @@ class WriterMode(ABC):
         """
         pass
 
-    def load_prompt_template(self) -> str:
-        """Load prompt template from file"""
-        return PromptManager.load(self.prompt_file)
+    def load_prompt_template(
+        self,
+        assignment_type: str = None,
+        citation_style: str = None
+    ) -> str:
+        """
+        Load prompt template from file with assignment-type support
+
+        Args:
+            assignment_type: Type of assignment (essay, discussion_post, etc.)
+            citation_style: Citation style (APA, MLA, Chicago, Harvard)
+
+        Returns:
+            Prompt template string
+        """
+        return PromptManager.load(
+            self.prompt_file,
+            assignment_type=assignment_type,
+            citation_style=citation_style
+        )
 
     async def invoke_llm(self, llm, prompt: str) -> str:
         """Invoke LLM with error handling"""
@@ -120,13 +137,21 @@ class InitialMode(WriterMode):
         print("✍️ Bot 2: WRITING INITIAL TEXT...")
         print("="*80 + "\n")
 
-        # Load main writer prompt
-        template = self.load_prompt_template()
+        # Get assignment details
+        assignment_type = requirements.get('assignment_type', 'essay')
+        citation_style = requirements.get('citation_style', 'APA')
+
+        # Load assignment-type specific prompt
+        template = self.load_prompt_template(
+            assignment_type=assignment_type,
+            citation_style=citation_style
+        )
 
         # Format with requirements
         prompt = PromptManager.format(
             template,
-            assignment_type=requirements.get('assignment_type', 'essay'),
+            assignment_type=assignment_type,
+            citation_style=citation_style,
             main_topic=requirements.get('main_topic', 'Not specified'),
             main_question=requirements.get('main_question', 'Not specified'),
             target_word_count=requirements.get('target_word_count', 300),
@@ -137,16 +162,17 @@ class InitialMode(WriterMode):
         )
 
         # Invoke LLM
-        draft_text = await self.invoke_llm(llm, prompt)
+        response = await self.invoke_llm(llm, prompt)
 
-        if not draft_text:
+        if not response:
             return {
                 **state,
                 "status": "failed",
                 "error": "Failed to generate initial draft"
             }
 
-        draft_text = self.clean_text(draft_text)
+        # Clean response
+        draft_text = self.clean_text(response)
         word_count = count_words(draft_text)
 
         print(f"📝 Initial draft written: {word_count} words")
@@ -189,7 +215,11 @@ class ExpandMode(WriterMode):
         print(f"✍️ Bot 2: EXPANDING TEXT (+{words_needed} words needed)...")
         print("="*80 + "\n")
 
-        template = self.load_prompt_template()
+        # Get assignment details
+        assignment_type = requirements.get('assignment_type', 'essay')
+        citation_style = requirements.get('citation_style', 'APA')
+
+        template = self.load_prompt_template(assignment_type, citation_style)
         prompt = PromptManager.format(
             template,
             current_text=current_text,
@@ -197,7 +227,8 @@ class ExpandMode(WriterMode):
             target_words=target_words,
             words_needed=words_needed,
             main_topic=requirements.get('main_topic', 'Not specified'),
-            main_question=requirements.get('main_question', 'Not specified')
+            main_question=requirements.get('main_question', 'Not specified'),
+            citation_style=citation_style
         )
 
         expanded_text = await self.invoke_llm(llm, prompt)
@@ -262,7 +293,11 @@ class ShortenMode(WriterMode):
         print(f"✍️ Bot 2: SHORTENING TEXT (-{words_to_cut} words to cut)...")
         print("="*80 + "\n")
 
-        template = self.load_prompt_template()
+        # Get assignment details
+        assignment_type = requirements.get('assignment_type', 'essay')
+        citation_style = requirements.get('citation_style', 'APA')
+
+        template = self.load_prompt_template(assignment_type, citation_style)
         prompt = PromptManager.format(
             template,
             current_text=current_text,
@@ -270,7 +305,8 @@ class ShortenMode(WriterMode):
             max_words=max_words,
             words_to_cut=words_to_cut,
             main_topic=requirements.get('main_topic', 'Not specified'),
-            main_question=requirements.get('main_question', 'Not specified')
+            main_question=requirements.get('main_question', 'Not specified'),
+            citation_style=citation_style
         )
 
         shortened_text = await self.invoke_llm(llm, prompt)
@@ -300,6 +336,95 @@ class ShortenMode(WriterMode):
             "status": "text_written",
             "agent_logs": state.get('agent_logs', []) + [
                 f"[Bot2:Writer] Shortened: {current_words} → {new_word_count} words"
+            ]
+        }
+
+
+class ShortenHumanizedMode(WriterMode):
+    """Shorten humanized text while preserving natural writing style"""
+
+    def __init__(self):
+        super().__init__("writer_shorten_humanized_prompt")
+
+    async def execute(
+        self,
+        state: OrderWorkflowState,
+        llm,
+        requirements: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        """Shorten humanized text while preserving human-like style"""
+        current_text = state.get('text_with_citations', state.get('draft_text', ''))
+        current_words = count_words(current_text)
+        pages_required = requirements.get('pages', state.get('pages_required', 1))
+
+        # Calculate maximum
+        target_words = requirements.get('target_word_count', 300)
+        if pages_required <= 4:
+            max_words = int(target_words * 1.40)
+        else:
+            max_words = int(target_words * 1.10)
+
+        words_to_remove = current_words - max_words
+
+        self.logger.info(f"Shortening humanized text: {current_words} → {max_words} max")
+
+        print("\n" + "="*80)
+        print(f"✍️ Bot 2: SHORTENING HUMANIZED TEXT")
+        print("="*80)
+        print(f"\n   ⚠️ Preserving human writing style while reducing word count")
+        print(f"   Current: {current_words} words")
+        print(f"   Target: {max_words} words")
+        print(f"   Need to remove: ~{words_to_remove} words\n")
+
+        # Get citation instructions
+        citation_action = state.get('citation_action', 'keep')
+        citation_instructions = "KEEP all existing citations exactly as they are (Author, Year). Do not remove or change them."
+
+        # Get assignment details
+        assignment_type = requirements.get('assignment_type', 'essay')
+        citation_style = requirements.get('citation_style', 'APA')
+
+        template = self.load_prompt_template(assignment_type, citation_style)
+        prompt = PromptManager.format(
+            template,
+            current_text=current_text,
+            current_words=current_words,
+            target_words=target_words,
+            max_words=max_words,
+            words_to_remove=words_to_remove,
+            main_topic=requirements.get('main_topic', 'Not specified'),
+            main_question=requirements.get('main_question', 'Not specified'),
+            citation_instructions=citation_instructions,
+            citation_style=citation_style
+        )
+
+        shortened_text = await self.invoke_llm(llm, prompt)
+
+        if not shortened_text:
+            return {
+                **state,
+                "status": "failed",
+                "error": "Failed to shorten humanized text"
+            }
+
+        shortened_text = self.clean_text(shortened_text)
+        new_word_count = count_words(shortened_text)
+
+        print(f"📝 Humanized text shortened: {current_words} → {new_word_count} words")
+        print(f"   Maximum allowed: {max_words} words")
+        status_msg = "✅ Within limit" if new_word_count <= max_words else "⚠️ Still over limit"
+        print(f"   {status_msg}\n")
+
+        return {
+            **state,
+            "draft_text": shortened_text,
+            "text_with_citations": shortened_text,
+            "word_count": new_word_count,
+            "writer_mode": "shorten_humanized",
+            "word_count_attempts": state.get('word_count_attempts', 0) + 1,
+            "status": "text_written",
+            "agent_logs": state.get('agent_logs', []) + [
+                f"[Bot2:Writer] Shortened humanized text: {current_words} → {new_word_count} words"
             ]
         }
 
@@ -336,6 +461,8 @@ class ReviseMode(WriterMode):
         requirements: Dict[str, Any]
     ) -> Dict[str, Any]:
         """Revise text based on quality feedback"""
+        print("\n🚨🚨🚨 DEBUG: ReviseMode.execute() CALLED 🚨🚨🚨")
+
         current_text = state.get('text_with_citations', state.get('draft_text', ''))
         quality_issues = state.get('quality_issues', [])
         quality_suggestions = state.get('quality_suggestions', [])
@@ -345,6 +472,7 @@ class ReviseMode(WriterMode):
         current_words = count_words(current_text)
 
         self.logger.info(f"Revising text: {len(quality_issues)} issues, {len(quality_suggestions)} suggestions")
+        print(f"🚨 DEBUG: quality_check_attempts = {state.get('quality_check_attempts', 0)}")
 
         print("\n" + "="*80)
         print("✍️ Bot 2: REVISING TEXT BASED ON QUALITY FEEDBACK...")
@@ -387,7 +515,11 @@ You are {words_over_target} words over target. DO NOT add more text.
 Fix issues by MODIFYING existing sentences, not adding new ones."""
 
         # Load and format template
-        template = self.load_prompt_template()
+        assignment_type = requirements.get('assignment_type', 'essay')
+        citation_style = requirements.get('citation_style', 'APA')
+
+        template = self.load_prompt_template(assignment_type, citation_style)
+
         prompt = PromptManager.format(
             template,
             current_text=current_text,
@@ -399,20 +531,22 @@ Fix issues by MODIFYING existing sentences, not adding new ones."""
             main_question=requirements.get('main_question', 'Not specified'),
             target_words=target_words,
             max_words=max_words,
-            citation_instructions=citation_instructions
+            citation_instructions=citation_instructions,
+            citation_style=citation_style
         )
 
         # Invoke LLM
-        revised_text = await self.invoke_llm(llm, prompt)
+        response = await self.invoke_llm(llm, prompt)
 
-        if not revised_text:
+        if not response:
             return {
                 **state,
                 "status": "failed",
                 "error": "Failed to revise text"
             }
 
-        revised_text = self.clean_text(revised_text)
+        # Clean response
+        revised_text = self.clean_text(response)
         word_count = count_words(revised_text)
 
         total_changes = len(quality_issues) + len(quality_suggestions)
@@ -420,6 +554,38 @@ Fix issues by MODIFYING existing sentences, not adding new ones."""
         print(f"   Critical issues fixed: {len(quality_issues)}")
         print(f"   Suggestions applied: {len(quality_suggestions)}")
         print(f"   Total improvements: {total_changes}")
+
+        # Save text versions for debugging
+        import os
+        debug_dir = "/home/user/4writersBOT/debug_texts"
+        print(f"🚨 DEBUG: About to create debug directory: {debug_dir}")
+        os.makedirs(debug_dir, exist_ok=True)
+        print(f"🚨 DEBUG: Directory created/verified")
+
+        attempt = state.get('quality_check_attempts', 0)
+        print(f"🚨 DEBUG: Saving files for attempt {attempt}")
+
+        # Save original text (before revision)
+        before_file = f"{debug_dir}/attempt_{attempt}_before.txt"
+        print(f"🚨 DEBUG: Writing to {before_file}")
+        with open(before_file, "w", encoding="utf-8") as f:
+            f.write(f"=== ATTEMPT {attempt} - BEFORE REVISION ===\n\n")
+            f.write(f"ISSUES TO FIX:\n")
+            for issue in quality_issues:
+                f.write(f"  - {issue}\n")
+            f.write(f"\n{'='*80}\n\n")
+            f.write(current_text)
+        print(f"🚨 DEBUG: BEFORE file written successfully")
+
+        # Save revised text (after revision)
+        after_file = f"{debug_dir}/attempt_{attempt}_after.txt"
+        print(f"🚨 DEBUG: Writing to {after_file}")
+        with open(after_file, "w", encoding="utf-8") as f:
+            f.write(f"=== ATTEMPT {attempt} - AFTER REVISION ===\n\n")
+            f.write(revised_text)
+        print(f"🚨 DEBUG: AFTER file written successfully")
+
+        print(f"\n   💾 DEBUG: Saved text versions to debug_texts/attempt_{attempt}_*.txt")
 
         # Debug output for citation issues
         if citation_action == "adjust" and quality_issues:
@@ -496,14 +662,19 @@ class FixHumanizedMode(WriterMode):
 
         issues_text = "\n".join([f"- {issue}" for issue in quality_issues]) if quality_issues else "None"
 
-        template = self.load_prompt_template()
+        # Get assignment details
+        assignment_type = requirements.get('assignment_type', 'essay')
+        citation_style = requirements.get('citation_style', 'APA')
+
+        template = self.load_prompt_template(assignment_type, citation_style)
         prompt = PromptManager.format(
             template,
             current_text=current_text,
             text_before_humanization=text_before_humanization[:500] + "..." if text_before_humanization else "Not available",
             issues_text=issues_text,
             main_topic=requirements.get('main_topic', 'Not specified'),
-            main_question=requirements.get('main_question', 'Not specified')
+            main_question=requirements.get('main_question', 'Not specified'),
+            citation_style=citation_style
         )
 
         fixed_text = await self.invoke_llm(llm, prompt)

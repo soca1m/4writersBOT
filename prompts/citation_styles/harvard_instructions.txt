@@ -1,0 +1,17 @@
+**Harvard Style**
+
+**In-Text Citations:**
+- Format: (Author Year) or (Author & Author Year) or (Author et al. Year)
+- Placement: Before the period at end of sentence
+- Single author: (Smith 2020)
+- Two authors: (Smith & Jones 2020)
+- Three or more authors: (Smith et al. 2020)
+- Page numbers: (Smith 2020, p. 45) or (Smith 2020, pp. 45-47)
+
+**Reference List (end of document):**
+- Format: Author, A.A. (Year) Title of work. Publisher.
+- Alphabetical order by author last name
+- Hanging indent (second line indented)
+
+**Example:**
+Smith, J.A. & Jones, B.C. (2020) Healthcare reform in America. London: Academic Press.

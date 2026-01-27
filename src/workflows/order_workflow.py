@@ -84,6 +84,12 @@ def create_order_workflow(checkpointer=None):
         mode = state.get("writer_mode", "initial")
 
         if state["status"] == "text_written":
+            # Check if this was shorten_humanized mode
+            if mode == "shorten_humanized":
+                # Citations already in text after humanization, go back to word count check
+                logger.info("Humanized text shortened, checking word count again")
+                return "check_word_count"
+
             # After initial, expand, or shorten mode
             logger.info(f"Text written (mode: {mode}), adding citations")
             return "integrate_citations"
@@ -145,12 +151,29 @@ def create_order_workflow(checkpointer=None):
 
     # After Bot 4 (Word Count)
     def after_word_count(state: OrderWorkflowState) -> str:
+        post_humanization = state.get("post_humanization_check", False)
+
         if state["status"] == "word_count_ok":
-            logger.info("Word count OK, checking quality")
-            return "check_quality"
+            # Check if this is after humanization
+            if post_humanization:
+                logger.info("Word count OK after humanization, generating references")
+                return "generate_references"
+            else:
+                logger.info("Word count OK, checking quality")
+                return "check_quality"
+
         elif state["status"] == "word_count_expanding":
             logger.info("Word count low, expanding text")
             return "write"  # Goes to Bot 2 in expand mode
+
+        elif state["status"] == "word_count_shortening":
+            # Check if this is after humanization
+            if post_humanization:
+                logger.info("Word count too high after humanization, shortening while preserving human style")
+                return "write"  # Goes to Bot 2 in shorten_humanized mode
+            else:
+                logger.info("Word count too high, shortening text")
+                return "write"  # Goes to Bot 2 in shorten mode
         else:
             logger.warning(f"Word count status: {state['status']}, checking quality")
             return "check_quality"
@@ -160,8 +183,8 @@ def create_order_workflow(checkpointer=None):
     # After Bot 5 (Quality)
     def after_quality(state: OrderWorkflowState) -> str:
         if state["status"] == "quality_ok":
-            logger.info("Quality OK, checking AI")
-            return "check_ai"
+            logger.info("Quality OK, checking AI detection")
+            return "check_ai"  # Go to AI check
         elif state["status"] == "quality_revising":
             logger.info("Quality issues, revising text")
             return "write"  # Goes to Bot 2 in revise mode
@@ -176,30 +199,35 @@ def create_order_workflow(checkpointer=None):
         status = state.get("status")
         post_humanization = state.get("post_humanization_check", False)
 
-        if status == "ai_passed":
-            # AI check passed - determine next step
-            if post_humanization:
-                # This was after humanization - skip to references
-                logger.info("AI check passed after humanization, generating references")
-                return "generate_references"
-            else:
-                # First time passing - go to references directly
-                logger.info("AI check passed, generating references")
-                return "generate_references"
+        # TEMPORARY: Skip humanization for testing
+        logger.info("⚠️ HUMANIZATION DISABLED FOR TESTING - going directly to references")
+        return "generate_references"
 
-        elif status == "ai_passed_post_humanization":
-            # AI passed and this was a post-humanization check
-            # Go to post-humanization quality check
-            logger.info("AI passed after humanization, checking post-humanization quality")
-            return "check_quality_post_humanization"
+        # Original logic (commented out for testing):
+        # if status == "ai_passed":
+        #     # AI check passed - determine next step
+        #     if post_humanization:
+        #         # This was after humanization - skip to references
+        #         logger.info("AI check passed after humanization, generating references")
+        #         return "generate_references"
+        #     else:
+        #         # First time passing - go to references directly
+        #         logger.info("AI check passed, generating references")
+        #         return "generate_references"
 
-        elif status == "ai_humanizing":
-            logger.info("AI detected, sending to humanizer")
-            return "humanize"  # Go to humanizer
+        # elif status == "ai_passed_post_humanization":
+        #     # AI passed and this was a post-humanization check
+        #     # Go to post-humanization quality check
+        #     logger.info("AI passed after humanization, checking post-humanization quality")
+        #     return "check_quality_post_humanization"
 
-        else:
-            logger.warning(f"AI check status: {status}, generating references anyway")
-            return "generate_references"
+        # elif status == "ai_humanizing":
+        #     logger.info("AI detected, sending to humanizer")
+        #     return "humanize"  # Go to humanizer
+
+        # else:
+        #     logger.warning(f"AI check status: {status}, generating references anyway")
+        #     return "generate_references"
 
     workflow.add_conditional_edges("check_ai", after_ai_check)
 
@@ -214,15 +242,15 @@ def create_order_workflow(checkpointer=None):
     # After Bot 5b (Post-Humanization Quality Check)
     def after_quality_post_humanization(state: OrderWorkflowState) -> str:
         if state.get("quality_ok"):
-            logger.info("Post-humanization quality OK, generating references")
-            return "generate_references"
+            logger.info("Post-humanization quality OK, checking word count")
+            return "check_word_count"  # Check word count after humanization
         elif state.get("status") == "quality_revising":
             # Critical errors found - need manual fixes
             logger.info("Post-humanization quality issues, fixing with style preservation")
             return "write"  # Go to writer in fix_humanized mode
         else:
-            logger.warning("Unknown post-humanization quality status, proceeding to references")
-            return "generate_references"
+            logger.warning("Unknown post-humanization quality status, checking word count")
+            return "check_word_count"
 
     workflow.add_conditional_edges("check_quality_post_humanization", after_quality_post_humanization)
 
